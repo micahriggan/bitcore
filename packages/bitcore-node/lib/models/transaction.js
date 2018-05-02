@@ -34,7 +34,7 @@ TransactionSchema.statics.batchImport = async function(params) {
         ? [array.splice(0, n)].concat(partition(array, n))
         : [];
     };
-    let mintOps = await Transaction.mintCoins(params);
+    let mintOps = await Transaction.getMintOps(params);
     if (mintOps.length) {
       mintOps = partition(mintOps, 100);
       mintOps = mintOps.map(mintBatch =>
@@ -43,7 +43,7 @@ TransactionSchema.statics.batchImport = async function(params) {
       await Promise.all(mintOps);
     }
 
-    let spendOps = Transaction.spendCoins(params);
+    let spendOps = Transaction.getSpendOps(params);
     if (spendOps.length) {
       spendOps = partition(spendOps, 100);
       spendOps = spendOps.map(spendBatch =>
@@ -144,7 +144,7 @@ TransactionSchema.statics.addTransactions = async function(params) {
   });
 };
 
-TransactionSchema.statics.mintCoins = async function(params) {
+TransactionSchema.statics.getMintOps = async function(params) {
   return new Promise(async (resolve, reject) => {
     let { chain, height, network, txs, parentChain, forkHeight } = params;
     let mintOps = [];
@@ -240,7 +240,7 @@ TransactionSchema.statics.mintCoins = async function(params) {
   });
 };
 
-TransactionSchema.statics.spendCoins = function(params) {
+TransactionSchema.statics.getSpendOps = function(params) {
   let { chain, network, height, txs, parentChain, forkHeight } = params;
   let spendOps = [];
   if (parentChain && height < forkHeight) {
