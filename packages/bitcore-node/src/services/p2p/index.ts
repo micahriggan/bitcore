@@ -53,7 +53,7 @@ export interface P2pService<Block, Transaction> {
 export type StandardP2p = P2pService<Bitcoin.Block, Bitcoin.Transaction>;
 type ChainSyncer = {
   add: (string) => void;
-  start: () => Promise<any>;
+  start: () => Promise<void>;
 };
 
 export type CompleteBlock<B, T> = {
