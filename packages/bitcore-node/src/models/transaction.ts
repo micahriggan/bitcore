@@ -32,11 +32,13 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   onConnect() {
+    if (!config.warpSync) {
+      this.collection.createIndex({ chain: 1, network: 1, blockHeight: 1 });
+      this.collection.createIndex({ chain: 1, network: 1, blockTimeNormalized: 1 });
+      this.collection.createIndex({ wallets: 1 }, { sparse: true });
+      this.collection.createIndex({ blockHash: 1 });
+    }
     this.collection.createIndex({ txid: 1 });
-    this.collection.createIndex({ chain: 1, network: 1, blockHeight: 1 });
-    this.collection.createIndex({ blockHash: 1 });
-    this.collection.createIndex({ chain: 1, network: 1, blockTimeNormalized: 1 });
-    this.collection.createIndex({ wallets: 1 }, { sparse: true });
   }
 
   async batchImport(params: {

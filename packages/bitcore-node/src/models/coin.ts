@@ -1,6 +1,7 @@
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel } from './base';
 import { ObjectID } from 'mongodb';
+import Config from '../config';
 
 export type ICoin = {
   network: string;
@@ -24,16 +25,18 @@ class Coin extends BaseModel<ICoin> {
   }
 
   onConnect() {
+    if (!Config.warpSync) {
+      this.collection.createIndex(
+        { mintTxid: 1, mintIndex: 1 },
+        { partialFilterExpression: { spentHeight: { $lt: 0 } } }
+      );
+      this.collection.createIndex({ address: 1 });
+      this.collection.createIndex({ mintHeight: 1, chain: 1, network: 1 });
+      this.collection.createIndex({ spentHeight: 1, chain: 1, network: 1 });
+      this.collection.createIndex({ wallets: 1, spentHeight: 1 }, { sparse: true });
+    }
     this.collection.createIndex({ mintTxid: 1 });
-    this.collection.createIndex(
-      { mintTxid: 1, mintIndex: 1 },
-      { partialFilterExpression: { spentHeight: { $lt: 0 } } }
-    );
-    this.collection.createIndex({ address: 1 });
-    this.collection.createIndex({ mintHeight: 1, chain: 1, network: 1 });
     this.collection.createIndex({ spentTxid: 1 }, { sparse: true });
-    this.collection.createIndex({ spentHeight: 1, chain: 1, network: 1 });
-    this.collection.createIndex({ wallets: 1, spentHeight: 1 }, { sparse: true });
   }
 
   getBalance(params: { query: any }) {
