@@ -5,7 +5,6 @@ import logger from '../logger';
 import config from '../config';
 import { LoggifyClass } from "../decorators/Loggify";
 import { MongoClient, Db } from "mongodb";
-import "../models"
 
 @LoggifyClass
 export class StorageService {

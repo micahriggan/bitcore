@@ -31,12 +31,12 @@ class Coin extends BaseModel<ICoin> {
         { partialFilterExpression: { spentHeight: { $lt: 0 } } }
       );
       this.collection.createIndex({ address: 1 });
-      this.collection.createIndex({ mintHeight: 1, chain: 1, network: 1 });
       this.collection.createIndex({ spentHeight: 1, chain: 1, network: 1 });
       this.collection.createIndex({ wallets: 1, spentHeight: 1 }, { sparse: true });
     }
     this.collection.createIndex({ mintTxid: 1 });
     this.collection.createIndex({ spentTxid: 1 }, { sparse: true });
+    this.collection.createIndex({ mintHeight: 1, chain: 1, network: 1 });
   }
 
   getBalance(params: { query: any }) {
