@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 'use strict';
 
-const Path = require('path');
+const path = require('path');
 const fs = require('fs');
 const config = require('../lib/config');
 const program = require('commander');
@@ -18,7 +18,7 @@ if (!program.path) {
 }
 
 const main = async () => {
-  const walletContainingFolder = Path.resolve(program.path);
+  const walletContainingFolder = path.resolve(program.path);
   const walletsInPath = config.wallets.filter(wallet => wallet.path === walletContainingFolder);
   const walletNames = walletsInPath.map(wallet => wallet.name)
 
