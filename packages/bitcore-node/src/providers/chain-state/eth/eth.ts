@@ -6,8 +6,7 @@ import { ObjectID } from 'mongodb';
 
 const Web3 = require('web3-eth');
 
-export class ETHStateProvider extends InternalStateProvider
-  implements CSP.IChainStateService {
+export class ETHStateProvider extends InternalStateProvider implements CSP.IChainStateService {
   config: any;
 
   constructor(public chain: string = 'ETH') {
@@ -32,12 +31,11 @@ export class ETHStateProvider extends InternalStateProvider
     return new Web3(new ProviderType(connUrl));
   }
 
-  async getBalanceForAddress(
-    params: CSP.GetBalanceForAddressParams
-  ): Promise<{ balance: number }[]> {
+  async getBalanceForAddress(params: CSP.GetBalanceForAddressParams): Promise<CSP.BalanceType> {
     const { network, address } = params;
-    const balance = Number(await this.getRPC(network).getBalance(address));
-    return [{ balance }];
+    const numberStr = await this.getRPC(network).getBalance(address);
+    const balance = Number(numberStr);
+    return { balance };
   }
 
   async getBlock(params: CSP.GetBlockParams) {
@@ -60,21 +58,14 @@ export class ETHStateProvider extends InternalStateProvider
   async getWalletBalance(params: CSP.GetWalletBalanceParams) {
     const { network } = params;
     if (params.wallet._id === undefined) {
-      throw new Error(
-        'Wallet balance can only be retrieved for wallets with the _id property'
-      );
+      throw new Error('Wallet balance can only be retrieved for wallets with the _id property');
     }
     let addresses = await this.getWalletAddresses(params.wallet._id);
     let addressBalancePromises = addresses.map(({ address }) =>
       this.getBalanceForAddress({ chain: this.chain, network, address })
     );
-    let addressBalances = await Promise.all<{ balance: number }[]>(
-      addressBalancePromises
-    );
-    let balance = addressBalances.reduce(
-      (prev, cur) => Number(prev) + Number(cur[0].balance),
-      0
-    );
-    return [{ balance }];
+    let addressBalances = await Promise.all<{ balance: number }>(addressBalancePromises);
+    let balance = addressBalances.reduce((prev, cur) => Number(prev) + Number(cur.balance), 0);
+    return { balance };
   }
 }

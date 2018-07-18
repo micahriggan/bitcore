@@ -31,13 +31,13 @@ export class InternalStateProvider implements CSP.IChainStateService {
   }
 
   private getAddressQuery(params: CSP.StreamAddressUtxosParams) {
-    const {network, address, args} = params;
+    const { network, address, args } = params;
     if (typeof address !== 'string' || !this.chain || !network) {
       throw 'Missing required param';
     }
     const query = { chain: this.chain, network: network.toLowerCase(), address } as any;
-    if(args.unspent) {
-      query.spentHeight = {$lt: 0};
+    if (args.unspent) {
+      query.spentHeight = { $lt: 0 };
     }
     return query;
   }
@@ -51,17 +51,19 @@ export class InternalStateProvider implements CSP.IChainStateService {
   async streamAddressTransactions(params: CSP.StreamAddressUtxosParams) {
     const { limit = 10, stream } = params;
     const query = this.getAddressQuery(params);
-    const coins = await CoinModel.collection.find(query, {limit}).toArray();
-    const txids = coins.map((coin) => coin.mintTxid);
-    const txQuery = {txid: {$in: txids}};
+    const coins = await CoinModel.collection.find(query, { limit }).toArray();
+    const txids = coins.map(coin => coin.mintTxid);
+    const txQuery = { txid: { $in: txids } };
     Storage.apiStreamingFind(TransactionModel, txQuery, {}, stream);
   }
 
-  async getBalanceForAddress(params: CSP.GetBalanceForAddressParams) {
+  async getBalanceForAddress(params: CSP.GetBalanceForAddressParams): Promise<CSP.BalanceType> {
     const { network, address } = params;
     let query = { chain: this.chain, network, address };
-    let balance = await CoinModel.getBalance({ query });
-    return balance;
+    const { balance } = await CoinModel.getBalance({ query });
+    const { totalSent } = await CoinModel.getTotalSent({ query });
+    const { totalReceived } = await CoinModel.getTotalReceived({ query });
+    return { balance, totalSent, totalReceived };
   }
 
   async getBalanceForWallet(params: CSP.GetBalanceForWalletParams) {

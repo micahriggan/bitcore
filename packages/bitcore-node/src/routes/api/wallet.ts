@@ -165,7 +165,7 @@ router.get(
         network,
         wallet: req.wallet!
       });
-      return res.send((result && result[0]) || { balance: 0 });
+      return res.send(result || { balance: 0 });
     } catch (err) {
       return res.status(500).json(err);
     }

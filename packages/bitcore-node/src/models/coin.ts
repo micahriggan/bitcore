@@ -43,21 +43,40 @@ class Coin extends BaseModel<ICoin> {
     this.collection.createIndex({ wallets: 1, spentHeight: 1 }, { sparse: true });
   }
 
-  getBalance(params: { query: any }) {
+  async totalValue(params: { query: any }) {
     let { query } = params;
-    query = Object.assign(query, { spentHeight: { $lt: 0 } });
-    return this.collection
-      .aggregate<{ balance: number }>([
+    let [{ total }] = await this.collection
+      .aggregate<{ total: number }>([
         { $match: query },
         {
           $group: {
             _id: null,
-            balance: { $sum: '$value' }
+            total: { $sum: '$value' }
           }
         },
         { $project: { _id: false } }
       ])
       .toArray();
+    return total;
+  }
+
+  async getTotalSent(query) {
+    query = Object.assign(query, { spentHeight: { $gt: -1 } });
+    const total = await this.totalValue({ query });
+    return { totalSent: total };
+  }
+
+  async getTotalReceived(query) {
+    query = Object.assign(query, { mintHeight: { $gt: -1 } });
+    const total = await this.totalValue({ query });
+    return { totalReceived: total };
+  }
+
+  async getBalance(params: { query: any }) {
+    let { query } = params;
+    query = Object.assign(query, { spentHeight: { $lt: 0 } });
+    const total = await this.totalValue({ query });
+    return { balance: total };
   }
 
   _apiTransform(coin: ICoin, options: { object: boolean }) {
