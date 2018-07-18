@@ -60,13 +60,15 @@ class Coin extends BaseModel<ICoin> {
     return total;
   }
 
-  async getTotalSent(query) {
+  async getTotalSent(params: { query: any }) {
+    let { query } = params;
     query = Object.assign(query, { spentHeight: { $gt: -1 } });
     const total = await this.totalValue({ query });
     return { totalSent: total };
   }
 
-  async getTotalReceived(query) {
+  async getTotalReceived(params: { query: any }) {
+    let { query } = params;
     query = Object.assign(query, { mintHeight: { $gt: -1 } });
     const total = await this.totalValue({ query });
     return { totalReceived: total };

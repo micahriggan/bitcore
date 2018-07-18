@@ -60,9 +60,11 @@ export class InternalStateProvider implements CSP.IChainStateService {
   async getBalanceForAddress(params: CSP.GetBalanceForAddressParams): Promise<CSP.BalanceType> {
     const { network, address } = params;
     let query = { chain: this.chain, network, address };
-    const { balance } = await CoinModel.getBalance({ query });
-    const { totalSent } = await CoinModel.getTotalSent({ query });
-    const { totalReceived } = await CoinModel.getTotalReceived({ query });
+    const [{ balance }, { totalSent }, { totalReceived }] = await Promise.all([
+      CoinModel.getBalance({ query }),
+      CoinModel.getTotalSent({ query }),
+      CoinModel.getTotalReceived({ query })
+    ]);
     return { balance, totalSent, totalReceived };
   }
 
