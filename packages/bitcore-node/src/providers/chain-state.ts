@@ -190,6 +190,17 @@ export class InternalStateProvider implements CSP.IChainStateService {
     Storage.apiStreamingFind(WalletAddressModel, query, { limit }, stream);
   }
 
+  async streamMissingWalletAddresses(params: CSP.StreamWalletMissingAddressesParams) {
+    const { walletId, stream } = params;
+    const query = { wallet: walletId };
+    const mintTxids = (await CoinModel.collection.distinct('mintTxid', query)) as string[];
+    for (const mintTxid of mintTxids) {
+      const missing = await CoinModel.collection.find({ mintTxid, wallets: null }).toArray();
+      stream.write(JSON.stringify(missing.map(coin => CoinModel._apiTransform(coin, { object: true }))));
+    }
+    stream.end();
+  }
+
   async updateWallet(params: CSP.UpdateWalletParams) {
     const { wallet, addresses } = params;
     return WalletAddressModel.updateCoins({ wallet, addresses });

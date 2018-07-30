@@ -90,20 +90,17 @@ router.post('/', async function(req, res) {
 router.get('/:pubKey/addresses/missing', authenticate, async function(req, res) {
   try {
     let { chain, network, pubKey } = req.params;
-    let { limit } = req.query;
     let payload = {
       chain,
       network,
       walletId: pubKey,
-      limit,
       stream: res
     };
-    return InternalState.streamWalletAddresses(payload);
+    return InternalState.streamMissingWalletAddresses(payload);
   } catch (err) {
     return res.status(500).send(err);
   }
 });
-
 
 router.get('/:pubKey/addresses', authenticate, async function(req, res) {
   try {

@@ -74,6 +74,12 @@ export declare namespace CSP {
     stream: Response;
     limit: number;
   };
+
+  export type StreamWalletMissingAddressesParams = ChainNetwork & {
+    walletId: IWallet;
+    stream: Response;
+  };
+
   export type StreamWalletTransactionsParams = ChainNetwork & {
     wallet: IWallet;
     stream: Response;
