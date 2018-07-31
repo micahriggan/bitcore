@@ -199,13 +199,13 @@ export class InternalStateProvider implements CSP.IChainStateService {
       const mintedCoin = await cursor.next();
       if (!seen[mintedCoin.mintTxid]) {
         seen[mintedCoin.mintTxid] = true;
-        const missing = await CoinModel.collection.find({ mintTxid: mintedCoin.mintTxid, wallets: null }).toArray();
+        const txMints = await CoinModel.collection.find({ chain, network, mintTxid: mintedCoin.mintTxid }).toArray();
+        const missing = txMints.filter(coin => coin.wallets.size === 0);
         stream.write(JSON.stringify({ txid: mintedCoin.mintTxid, missing }) + '\n');
       } else {
         stream.write(JSON.stringify({ txid: mintedCoin.mintTxid }) + '\n');
       }
     }
-    return stream.end(200);
   }
 
   async updateWallet(params: CSP.UpdateWalletParams) {
