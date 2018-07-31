@@ -1,6 +1,5 @@
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel } from './base';
-import { ObjectID } from 'mongodb';
 
 const Chain = require('../chain');
 
@@ -14,7 +13,7 @@ export type ICoin = {
   value: number;
   address: string;
   script: Buffer;
-  wallets: Array<ObjectID>;
+  wallets: Array<string>;
   spentTxid: string;
   spentHeight: number;
 };
