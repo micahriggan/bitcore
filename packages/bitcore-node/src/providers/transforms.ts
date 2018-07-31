@@ -1,7 +1,7 @@
 import { CoinModel } from '../models/coin';
 import { Transform } from 'stream';
 import { IWallet } from '../models/wallet';
-import { MongoBound } from "../models/base";
+import { MongoBound } from '../models/base';
 
 export class ListTransactionsStream extends Transform {
   constructor(private wallet: MongoBound<IWallet>) {
@@ -43,36 +43,28 @@ export class ListTransactionsStream extends Transform {
     var fee = totalInputs - totalOutputs;
     var sending = _.some(transaction.inputs, function(input) {
       var contains = false;
-      _.each(input.wallets, function(inputWallet) {
+      for (let inputWallet of input.wallets) {
         if (inputWallet.equals(wallet)) {
           contains = true;
         }
-      });
+      }
       return contains;
     });
 
     if (sending) {
-      _.each(transaction.outputs, function(output) {
-        var contains = false;
-        _.each(output.wallets, function(outputWallet) {
-          if (outputWallet.equals(wallet)) {
-            contains = true;
-          }
-        });
-        if (!contains) {
-          self.push(
-            JSON.stringify({
-              txid: transaction.txid,
-              category: 'send',
-              satoshis: -output.value,
-              height: transaction.blockHeight,
-              address: output.address,
-              outputIndex: output.vout,
-              blockTime: transaction.blockTimeNormalized
-            }) + '\n'
-          );
-        }
-      });
+      for (let output of transaction.outputs) {
+        self.push(
+          JSON.stringify({
+            txid: transaction.txid,
+            category: 'send',
+            satoshis: -output.value,
+            height: transaction.blockHeight,
+            address: output.address,
+            outputIndex: output.vout,
+            blockTime: transaction.blockTimeNormalized
+          }) + '\n'
+        );
+      }
       if (fee > 0) {
         self.push(
           JSON.stringify({
@@ -87,13 +79,13 @@ export class ListTransactionsStream extends Transform {
       return done();
     }
 
-    _.each(transaction.outputs, function(output) {
+    for (let output of transaction.outputs) {
       var contains = false;
-      _.each(output.wallets, function(outputWallet) {
+      for (let outputWallet of output.wallets) {
         if (outputWallet.equals(wallet)) {
           contains = true;
         }
-      });
+      }
       if (contains) {
         self.push(
           JSON.stringify({
@@ -107,7 +99,7 @@ export class ListTransactionsStream extends Transform {
           }) + '\n'
         );
       }
-    });
+    }
     done();
   }
 }
