@@ -207,8 +207,8 @@ export class InternalStateProvider implements CSP.IChainStateService {
         const missing = spends
           .filter(coin => !stringifyWallets(coin.wallets).includes(walletId.toHexString()))
           .map(coin => {
-            const { _id, wallets } = coin;
-            return { _id, wallets, expected: walletId.toHexString() };
+            const { _id, wallets, address } = coin;
+            return { _id, wallets, address, expected: walletId.toHexString() };
           });
         stream.write(JSON.stringify({ txid: spentCoin.spentTxid, missing }) + '\n');
       } else {
