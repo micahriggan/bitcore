@@ -3,7 +3,7 @@ import { Transform } from 'stream';
 import { IWallet } from '../models/wallet';
 import { MongoBound } from "../models/base";
 
-class ListTransactionsStream extends Transform {
+export class ListTransactionsStream extends Transform {
   constructor(private wallet: MongoBound<IWallet>) {
     super({ objectMode: true });
   }
@@ -111,5 +111,3 @@ class ListTransactionsStream extends Transform {
     done();
   }
 }
-
-module.exports = ListTransactionsStream;

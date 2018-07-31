@@ -1,3 +1,6 @@
+import config from '../config';
+import logger from '../logger';
+
 import { CoinModel } from '../models/coin';
 import { BlockModel } from '../models/block';
 import { WalletModel, IWallet } from '../models/wallet';
@@ -6,12 +9,9 @@ import { CSP } from '../types/namespaces/ChainStateProvider';
 import { Storage } from '../services/storage';
 import { RPC } from '../rpc';
 import { LoggifyClass } from '../decorators/Loggify';
-import config from '../config';
-
 import { TransactionModel } from '../models/transaction';
 import { StateModel } from '../models/state';
-
-const ListTransactionsStream = require('./transforms');
+import { ListTransactionsStream } from './transforms';
 
 @LoggifyClass
 export class InternalStateProvider implements CSP.IChainStateService {
@@ -193,17 +193,22 @@ export class InternalStateProvider implements CSP.IChainStateService {
   async streamMissingWalletAddresses(params: CSP.StreamWalletMissingAddressesParams) {
     const { chain, network, pubKey, stream } = params;
     const wallet = await WalletModel.collection.findOne({ pubKey });
+    logger.debug('Found wallet', wallet);
     const query = { chain, network, wallet: wallet!._id };
     const cursor = CoinModel.collection.find(query);
     const seen = {};
     while (cursor.hasNext()) {
       const mintedCoin = await cursor.next();
+      logger.debug('Found coin', mintedCoin.mintTxid);
       if (!seen[mintedCoin.mintTxid]) {
         seen[mintedCoin.mintTxid] = true;
+        logger.debug('Finding missing minted coin', mintedCoin.mintTxid);
         const missing = await CoinModel.collection.find({ mintTxid: mintedCoin.mintTxid, wallets: null }).toArray();
         stream.write(JSON.stringify({ txid: mintedCoin.mintTxid, missing }));
+      } else {
+        logger.debug('Already seen this coin', mintedCoin.mintTxid);
+        stream.write(JSON.stringify({ txid: mintedCoin.mintTxid }));
       }
-      stream.write(JSON.stringify({ txid: mintedCoin.mintTxid }));
     }
     stream.end();
   }
