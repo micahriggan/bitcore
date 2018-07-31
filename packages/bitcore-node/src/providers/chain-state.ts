@@ -205,7 +205,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
         stream.write(JSON.stringify({ txid: mintedCoin.mintTxid }) + '\n');
       }
     }
-    stream.end();
+    return stream.end(200);
   }
 
   async updateWallet(params: CSP.UpdateWalletParams) {
