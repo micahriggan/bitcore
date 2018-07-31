@@ -223,14 +223,14 @@ export class Transaction extends BaseModel<ITransaction> {
 
     if (initialSyncComplete) {
       let mintOpsAddresses = mintOps.map(mintOp => mintOp.updateOne.update.$set.address);
-      let wallets = await WalletAddressModel.collection
+      let walletAddresses = await WalletAddressModel.collection
         .find({ address: { $in: mintOpsAddresses }, chain, network }, { batchSize: 100 })
         .toArray();
-      if (wallets.length) {
+      if (walletAddresses.length) {
         mintOps = mintOps.map(mintOp => {
-          let transformedWallets = wallets
-            .filter(wallet => wallet.address === mintOp.updateOne.update.$set.address)
-            .map(wallet => wallet.wallet);
+          let transformedWallets = walletAddresses
+            .filter(walletAddress => walletAddress.address === mintOp.updateOne.update.$set.address)
+            .map(walletAddress => walletAddress.wallet);
           mintOp.updateOne.update.$set.wallets = transformedWallets;
           return mintOp;
         });

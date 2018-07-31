@@ -1,9 +1,10 @@
 import { CoinModel } from '../models/coin';
 import { Transform } from 'stream';
 import { IWallet } from '../models/wallet';
+import { MongoBound } from "../models/base";
 
 class ListTransactionsStream extends Transform {
-  constructor(private wallet: IWallet) {
+  constructor(private wallet: MongoBound<IWallet>) {
     super({ objectMode: true });
   }
 
