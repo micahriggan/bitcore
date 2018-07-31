@@ -78,7 +78,7 @@ export declare namespace CSP {
   };
 
   export type StreamWalletMissingAddressesParams = ChainNetwork & {
-    walletId: ObjectId;
+    pubKey: string;
     stream: Response;
   };
 

@@ -88,14 +88,13 @@ router.post('/', async function(req, res) {
   }
 });
 
-router.get('/:pubKey/addresses/missing', authenticate, async (req: AuthenticatedRequest, res) => {
+router.get('/:pubKey/addresses/missing', async (req: AuthenticatedRequest, res) => {
   try {
-    const { wallet } = req;
-    let { chain, network } = req.params;
+    let { chain, network, pubKey } = req.params;
     let payload = {
       chain,
       network,
-      walletId: wallet!._id,
+      pubKey,
       stream: res
     };
     return InternalState.streamMissingWalletAddresses(payload);
