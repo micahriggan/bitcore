@@ -1,5 +1,4 @@
 import config from '../config';
-import logger from '../logger';
 
 import { CoinModel } from '../models/coin';
 import { BlockModel } from '../models/block';
@@ -193,21 +192,16 @@ export class InternalStateProvider implements CSP.IChainStateService {
   async streamMissingWalletAddresses(params: CSP.StreamWalletMissingAddressesParams) {
     const { chain, network, pubKey, stream } = params;
     const wallet = await WalletModel.collection.findOne({ pubKey });
-    logger.debug('Found wallet', wallet);
-    const query = { chain, network, wallet: wallet!._id.toHexString() };
-    logger.debug('Querying', query);
+    const query = { chain, network, wallets: wallet!._id };
     const cursor = CoinModel.collection.find(query);
     const seen = {};
     while (cursor.hasNext()) {
       const mintedCoin = await cursor.next();
-      logger.debug('Found coin', mintedCoin.mintTxid);
       if (!seen[mintedCoin.mintTxid]) {
         seen[mintedCoin.mintTxid] = true;
-        logger.debug('Finding missing minted coin', mintedCoin.mintTxid);
         const missing = await CoinModel.collection.find({ mintTxid: mintedCoin.mintTxid, wallets: null }).toArray();
         stream.write(JSON.stringify({ txid: mintedCoin.mintTxid, missing }));
       } else {
-        logger.debug('Already seen this coin', mintedCoin.mintTxid);
         stream.write(JSON.stringify({ txid: mintedCoin.mintTxid }));
       }
     }
