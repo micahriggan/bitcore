@@ -14,7 +14,7 @@ export type ICoin = {
   value: number;
   address: string;
   script: Buffer;
-  wallets: Set<ObjectID>;
+  wallets: Array<ObjectID>;
   spentTxid: string;
   spentHeight: number;
 };
