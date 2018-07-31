@@ -192,7 +192,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
   async streamMissingWalletAddresses(params: CSP.StreamWalletMissingAddressesParams) {
     const { chain, network, pubKey, stream } = params;
     const wallet = await WalletModel.collection.findOne({ pubKey });
-    const query = { chain, network, wallets: wallet!._id, spentHeight: {$gte: 0}};
+    const query = { chain, network, wallets: wallet!._id, spentHeight: { $gte: 0 } };
     const cursor = CoinModel.collection.find(query);
     const seen = {};
     while (cursor.hasNext()) {
@@ -201,7 +201,10 @@ export class InternalStateProvider implements CSP.IChainStateService {
         seen[spentCoin.spentTxid] = true;
         // find coins that were spent with my coins
         const spends = await CoinModel.collection.find({ chain, network, spentTxid: spentCoin.spentTxid }).toArray();
-        const missing = spends.filter(coin => !coin.wallets.includes(wallet!._id.toHexString()));
+        const missing = spends.filter(coin => !coin.wallets.includes(wallet!._id.toHexString())).map(coin => {
+          const { _id, wallets } = coin;
+          return { _id, wallets, expected: wallet!._id.toHexString() };
+        });
         stream.write(JSON.stringify({ txid: spentCoin.spentTxid, missing }) + '\n');
       } else {
         stream.write(JSON.stringify({ txid: spentCoin.spentTxid }) + '\n');
