@@ -195,6 +195,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
     const wallet = await WalletModel.collection.findOne({ pubKey });
     logger.debug('Found wallet', wallet);
     const query = { chain, network, wallet: wallet!._id };
+    logger.debug('Querying', query);
     const cursor = CoinModel.collection.find(query);
     const seen = {};
     while (cursor.hasNext()) {
