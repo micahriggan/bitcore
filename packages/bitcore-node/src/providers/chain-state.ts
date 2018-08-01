@@ -201,24 +201,37 @@ export class InternalStateProvider implements CSP.IChainStateService {
     const cursor = CoinModel.collection.find(query);
     const seen = {};
     const stringifyWallets = (wallets: Array<ObjectId>) => wallets.map(w => w.toHexString());
+    const allMissingAddresses = new Array<string>();
+    let totalMissingValue = 0;
     const missingStream = cursor.pipe(
-      through2({ objectMode: true }, async (spentCoin: MongoBound<ICoin>, _, done) => {
-        if (!seen[spentCoin.spentTxid]) {
-          seen[spentCoin.spentTxid] = true;
-          // find coins that were spent with my coins
-          const spends = await CoinModel.collection.find({ chain, network, spentTxid: spentCoin.spentTxid }).toArray();
-          const missing = spends
-            .filter(coin => !stringifyWallets(coin.wallets).includes(walletId.toHexString()))
-            .map(coin => {
-              const { _id, wallets, address, value } = coin;
-              return { _id, wallets, address, value, expected: walletId.toHexString() };
-            });
-          if(missing.length > 0) {
-            return done(null, { txid: spentCoin.spentTxid, missing });
+      through2(
+        { objectMode: true },
+        async (spentCoin: MongoBound<ICoin>, _, done) => {
+          if (!seen[spentCoin.spentTxid]) {
+            seen[spentCoin.spentTxid] = true;
+            // find coins that were spent with my coins
+            const spends = await CoinModel.collection
+              .find({ chain, network, spentTxid: spentCoin.spentTxid })
+              .toArray();
+            const missing = spends
+              .filter(coin => !stringifyWallets(coin.wallets).includes(walletId.toHexString()))
+              .map(coin => {
+                const { _id, wallets, address, value } = coin;
+                totalMissingValue += value;
+                allMissingAddresses.push(address);
+                return { _id, wallets, address, value, expected: walletId.toHexString() };
+              });
+            if (missing.length > 0) {
+              return done(null, { txid: spentCoin.spentTxid, missing });
+            }
           }
+          return done();
+        },
+        function(done) {
+          this.push({ allMissingAddresses, totalMissingValue });
+          done();
         }
-        return done();
-      })
+      )
     );
     missingStream.pipe(new StringifyJsonStream()).pipe(stream);
   }
