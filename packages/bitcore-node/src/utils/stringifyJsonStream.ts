@@ -6,6 +6,7 @@ export class StringifyJsonStream extends Transform {
   }
 
   _transform(item, _, done) {
+    console.log(item);
     this.push(JSON.stringify(item) + '\n');
     done();
   }
