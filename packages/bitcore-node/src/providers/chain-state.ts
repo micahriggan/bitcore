@@ -1,7 +1,7 @@
 import config from '../config';
 import through2 from 'through2';
 
-import { MongoBound } from "../models/base";
+import { MongoBound } from '../models/base';
 import { ObjectId } from 'mongodb';
 import { CoinModel, ICoin } from '../models/coin';
 import { BlockModel } from '../models/block';
@@ -203,7 +203,6 @@ export class InternalStateProvider implements CSP.IChainStateService {
     const stringifyWallets = (wallets: Array<ObjectId>) => wallets.map(w => w.toHexString());
     const missingStream = cursor.pipe(
       through2({ objectMode: true }, async (spentCoin: MongoBound<ICoin>, _, done) => {
-        console.log(spentCoin.spentTxid);
         if (!seen[spentCoin.spentTxid]) {
           seen[spentCoin.spentTxid] = true;
           // find coins that were spent with my coins
@@ -214,10 +213,9 @@ export class InternalStateProvider implements CSP.IChainStateService {
               const { _id, wallets, address, value } = coin;
               return { _id, wallets, address, value, expected: walletId.toHexString() };
             });
-          done(null, { txid: spentCoin.spentTxid, missing });
-        } else {
-          done(null, { txid: spentCoin.spentTxid });
+          return done(null, { txid: spentCoin.spentTxid, missing });
         }
+        return done();
       })
     );
     missingStream.pipe(new StringifyJsonStream()).pipe(stream);
