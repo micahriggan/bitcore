@@ -12,7 +12,7 @@ import { TransactionModel } from '../models/transaction';
 import { StateModel } from '../models/state';
 import { ListTransactionsStream } from './transforms';
 import { ObjectID } from 'bson';
-import { stringifyJsonStream } from "../utils/streamStringify";
+import { stringifyJsonStream } from '../utils/stringifyJsonStream';
 
 @LoggifyClass
 export class InternalStateProvider implements CSP.IChainStateService {
