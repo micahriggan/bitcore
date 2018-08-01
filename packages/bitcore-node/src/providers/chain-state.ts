@@ -1,7 +1,7 @@
 import config from '../config';
 import through2 from 'through2';
 
-import { CoinModel } from '../models/coin';
+import { CoinModel, ICoin } from '../models/coin';
 import { BlockModel } from '../models/block';
 import { WalletModel, IWallet } from '../models/wallet';
 import { WalletAddressModel } from '../models/walletAddress';
@@ -14,6 +14,7 @@ import { StateModel } from '../models/state';
 import { ListTransactionsStream } from './transforms';
 import { ObjectID } from 'bson';
 import { stringifyJsonStream } from '../utils/stringifyJsonStream';
+import { MongoBound } from "../models/base";
 
 @LoggifyClass
 export class InternalStateProvider implements CSP.IChainStateService {
@@ -201,7 +202,8 @@ export class InternalStateProvider implements CSP.IChainStateService {
     const seen = {};
     const stringifyWallets = (wallets: Array<ObjectID>) => wallets.map(w => w.toHexString());
     const missingStream = cursor.pipe(
-      through2({ objectMode: true }, async (spentCoin, _, cb) => {
+      through2({ objectMode: true }, async (spentCoin: MongoBound<ICoin>, _, done) => {
+        console.log(spentCoin.spentTxid);
         if (!seen[spentCoin.spentTxid]) {
           seen[spentCoin.spentTxid] = true;
           // find coins that were spent with my coins
@@ -212,9 +214,9 @@ export class InternalStateProvider implements CSP.IChainStateService {
               const { _id, wallets, address, value } = coin;
               return { _id, wallets, address, value, expected: walletId.toHexString() };
             });
-          cb(null, { txid: spentCoin.spentTxid, missing });
+          done(null, { txid: spentCoin.spentTxid, missing });
         } else {
-          cb(null, { txid: spentCoin.spentTxid });
+          done(null, { txid: spentCoin.spentTxid });
         }
       })
     );
