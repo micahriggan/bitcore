@@ -32,13 +32,6 @@ export class ListTransactionsStream extends Transform {
     transaction.inputs = inputs;
     transaction.outputs = outputs;
     const wallet = this.wallet._id!.toString();
-    const totalInputs = transaction.inputs.reduce((total, input) => {
-      return total + input.value;
-    }, 0);
-    const totalOutputs = transaction.outputs.reduce((total, output) => {
-      return total + output.value;
-    }, 0);
-    const fee = totalInputs - totalOutputs;
     const sending = transaction.inputs.some(input => {
       let contains = false;
       for (let inputWallet of input.wallets) {
@@ -49,8 +42,14 @@ export class ListTransactionsStream extends Transform {
       return contains;
     });
 
-    if (sending) {
-      for (let output of transaction.outputs) {
+    const totalInputs = transaction.inputs.reduce((total, input) => {
+      return total + input.value;
+    }, 0);
+    let totalOutputs = 0;
+
+    for (let output of transaction.outputs) {
+      totalOutputs += output.value;
+      if (sending) {
         self.push(
           JSON.stringify({
             txid: transaction.txid,
@@ -63,28 +62,13 @@ export class ListTransactionsStream extends Transform {
           }) + '\n'
         );
       }
-      if (fee > 0) {
-        self.push(
-          JSON.stringify({
-            txid: transaction.txid,
-            category: 'fee',
-            satoshis: -fee,
-            height: transaction.blockHeight,
-            blockTime: transaction.blockTimeNormalized
-          }) + '\n'
-        );
-      }
-      return done();
-    }
-
-    for (let output of transaction.outputs) {
-      let contains = false;
+      let receiving = false;
       for (let outputWallet of output.wallets) {
         if (outputWallet.equals(wallet)) {
-          contains = true;
+          receiving = true;
         }
       }
-      if (contains) {
+      if (receiving) {
         self.push(
           JSON.stringify({
             txid: transaction.txid,
@@ -98,6 +82,19 @@ export class ListTransactionsStream extends Transform {
         );
       }
     }
+    const fee = totalInputs - totalOutputs;
+    if (sending && fee > 0) {
+      self.push(
+        JSON.stringify({
+          txid: transaction.txid,
+          category: 'fee',
+          satoshis: -fee,
+          height: transaction.blockHeight,
+          blockTime: transaction.blockTimeNormalized
+        }) + '\n'
+      );
+    }
+
     done();
   }
 }
