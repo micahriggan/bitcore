@@ -9,6 +9,7 @@ export class ListTransactionsStream extends Transform {
   constructor(private wallet: MongoBound<IWallet>) {
     super({
       objectMode: true,
+      highWaterMark: 1000
     });
   }
 
@@ -99,7 +100,7 @@ export class ListTransactionsStream extends Transform {
     }
   }
 
-  async _transform(tx, _, done) {
+  _transform(tx, _, done) {
     this.allWritten.push(this.writeTxToStream(tx));
     done();
   }
