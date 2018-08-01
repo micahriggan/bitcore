@@ -201,7 +201,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
     const seen = {};
     const stringifyWallets = (wallets: Array<ObjectId>) => wallets.map(w => w.toHexString());
     const missingStream = cursor.stream({
-      transform: async (spentCoin: MongoBound<ICoin>, _, done) => {
+      transform: async (spentCoin: MongoBound<ICoin>) => {
         if (!seen[spentCoin.spentTxid]) {
           seen[spentCoin.spentTxid] = true;
           // find coins that were spent with my coins
@@ -212,9 +212,9 @@ export class InternalStateProvider implements CSP.IChainStateService {
               const { _id, wallets, address, value } = coin;
               return { _id, wallets, address, value, expected: walletId.toHexString() };
             });
-          return done(null, { txid: spentCoin.spentTxid, missing });
+          return { txid: spentCoin.spentTxid, missing };
         }
-        return done();
+        return;
       }
     });
     missingStream.pipe(new StringifyJsonStream()).pipe(stream);
