@@ -10,29 +10,27 @@ export class ListTransactionsStream extends Transform {
 
   async _transform(transaction, _, done) {
     const self = this;
-    transaction.inputs = await CoinModel.collection
-      .find(
-        {
+    const [inputs, outputs] = await Promise.all([
+      CoinModel.collection
+        .find({
           chain: transaction.chain,
           network: transaction.network,
           spentTxid: transaction.txid
-        },
-        { batchSize: 100 }
-      )
-      .addCursorFlag('noCursorTimeout', true)
-      .toArray();
-    transaction.outputs = await CoinModel.collection
-      .find(
-        {
+        })
+        .addCursorFlag('noCursorTimeout', true)
+        .toArray(),
+      CoinModel.collection
+        .find({
           chain: transaction.chain,
           network: transaction.network,
           mintTxid: transaction.txid
-        },
-        { batchSize: 100 }
-      )
-      .addCursorFlag('noCursorTimeout', true)
-      .toArray();
+        })
+        .addCursorFlag('noCursorTimeout', true)
+        .toArray()
+    ]);
 
+    transaction.inputs = inputs;
+    transaction.outputs = outputs;
     const wallet = this.wallet._id!.toString();
     const totalInputs = transaction.inputs.reduce((total, input) => {
       return total + input.value;
@@ -41,7 +39,7 @@ export class ListTransactionsStream extends Transform {
       return total + output.value;
     }, 0);
     const fee = totalInputs - totalOutputs;
-    const sending = transaction.inputs.some((input) => {
+    const sending = transaction.inputs.some(input => {
       let contains = false;
       for (let inputWallet of input.wallets) {
         if (inputWallet.equals(wallet)) {
