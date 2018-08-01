@@ -96,11 +96,11 @@ export class Transaction extends BaseModel<ITransaction> {
     let txids = txs.map(tx => tx._hash);
 
     type TaggedCoin = ICoin & { _id: string };
-    let mintWallets;
-    let spentWallets;
+    let mintedTxWallets;
+    let spentTxWallets;
 
     if (initialSyncComplete){
-      mintWallets = await CoinModel.collection
+      mintedTxWallets = await CoinModel.collection
         .aggregate<TaggedCoin>([
           { $match: { mintTxid: { $in: txids }, chain, network } },
           { $unwind: '$wallets' },
@@ -108,7 +108,7 @@ export class Transaction extends BaseModel<ITransaction> {
         ])
         .toArray();
 
-      spentWallets = await CoinModel.collection
+      spentTxWallets = await CoinModel.collection
         .aggregate<TaggedCoin>([
           { $match: { spentTxid: { $in: txids }, chain, network } },
           { $unwind: '$wallets' },
@@ -121,7 +121,8 @@ export class Transaction extends BaseModel<ITransaction> {
     let txOps = txs.map((tx, index) => {
       let wallets = new Array<ObjectID>();
       if (initialSyncComplete){
-        for (let wallet of mintWallets.concat(spentWallets).filter(wallet => wallet._id === txids[index])) {
+        const walletTxGroups = mintedTxWallets.concat(spentTxWallets);
+        for (let wallet of walletTxGroups.filter(walletTxGroup => walletTxGroup._id === txids[index])) {
           for (let walletMatch of wallet.wallets) {
             if (!wallets.find(wallet => wallet.toHexString() === walletMatch.toHexString())) {
               wallets.push(walletMatch);

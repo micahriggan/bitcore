@@ -12,6 +12,7 @@ import { TransactionModel } from '../models/transaction';
 import { StateModel } from '../models/state';
 import { ListTransactionsStream } from './transforms';
 import { ObjectID } from 'bson';
+import { stringifyJsonStream } from "../utils/streamStringify";
 
 @LoggifyClass
 export class InternalStateProvider implements CSP.IChainStateService {
@@ -197,24 +198,26 @@ export class InternalStateProvider implements CSP.IChainStateService {
     const query = { chain, network, wallets: walletId, spentHeight: { $gte: 0 } };
     const cursor = CoinModel.collection.find(query);
     const seen = {};
-    while (cursor.hasNext()) {
-      const spentCoin = await cursor.next();
-      if (!seen[spentCoin.spentTxid]) {
-        seen[spentCoin.spentTxid] = true;
-        // find coins that were spent with my coins
-        const spends = await CoinModel.collection.find({ chain, network, spentTxid: spentCoin.spentTxid }).toArray();
-        const stringifyWallets = (wallets: Array<ObjectID>) => wallets.map(w => w.toHexString());
-        const missing = spends
-          .filter(coin => !stringifyWallets(coin.wallets).includes(walletId.toHexString()))
-          .map(coin => {
-            const { _id, wallets, address, value } = coin;
-            return { _id, wallets, address, value, expected: walletId.toHexString() };
-          });
-        stream.write(JSON.stringify({ txid: spentCoin.spentTxid, missing }) + '\n');
-      } else {
-        stream.write(JSON.stringify({ txid: spentCoin.spentTxid }) + '\n');
+    const stringifyWallets = (wallets: Array<ObjectID>) => wallets.map(w => w.toHexString());
+    const missingStream = cursor.stream({
+      transform: async spentCoin => {
+        if (!seen[spentCoin.spentTxid]) {
+          seen[spentCoin.spentTxid] = true;
+          // find coins that were spent with my coins
+          const spends = await CoinModel.collection.find({ chain, network, spentTxid: spentCoin.spentTxid }).toArray();
+          const missing = spends
+            .filter(coin => !stringifyWallets(coin.wallets).includes(walletId.toHexString()))
+            .map(coin => {
+              const { _id, wallets, address, value } = coin;
+              return { _id, wallets, address, value, expected: walletId.toHexString() };
+            });
+          return { txid: spentCoin.spentTxid, missing };
+        } else {
+          return { txid: spentCoin.spentTxid };
+        }
       }
-    }
+    });
+    missingStream.pipe(stringifyJsonStream).pipe(stream);
   }
 
   async updateWallet(params: CSP.UpdateWalletParams) {

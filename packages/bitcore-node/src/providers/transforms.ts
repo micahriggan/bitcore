@@ -9,7 +9,7 @@ export class ListTransactionsStream extends Transform {
   }
 
   async _transform(transaction, _, done) {
-    var self = this;
+    const self = this;
     transaction.inputs = await CoinModel.collection
       .find(
         {
@@ -33,16 +33,16 @@ export class ListTransactionsStream extends Transform {
       .addCursorFlag('noCursorTimeout', true)
       .toArray();
 
-    var wallet = this.wallet._id!.toString();
-    var totalInputs = transaction.inputs.reduce((total, input) => {
+    const wallet = this.wallet._id!.toString();
+    const totalInputs = transaction.inputs.reduce((total, input) => {
       return total + input.value;
     }, 0);
-    var totalOutputs = transaction.outputs.reduce((total, output) => {
+    const totalOutputs = transaction.outputs.reduce((total, output) => {
       return total + output.value;
     }, 0);
-    var fee = totalInputs - totalOutputs;
-    var sending = _.some(transaction.inputs, function(input) {
-      var contains = false;
+    const fee = totalInputs - totalOutputs;
+    const sending = transaction.inputs.some((input) => {
+      let contains = false;
       for (let inputWallet of input.wallets) {
         if (inputWallet.equals(wallet)) {
           contains = true;
@@ -80,7 +80,7 @@ export class ListTransactionsStream extends Transform {
     }
 
     for (let output of transaction.outputs) {
-      var contains = false;
+      let contains = false;
       for (let outputWallet of output.wallets) {
         if (outputWallet.equals(wallet)) {
           contains = true;

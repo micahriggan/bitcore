@@ -97,7 +97,6 @@ router.get('/:pubKey/addresses/missing', async (req: AuthenticatedRequest, res) 
       pubKey,
       stream: res
     };
-    res.type('json');
     await InternalState.streamMissingWalletAddresses(payload);
     return res.end();
   } catch (err) {
