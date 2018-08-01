@@ -1,6 +1,8 @@
 import config from '../config';
 import through2 from 'through2';
 
+import { MongoBound } from "../models/base";
+import { ObjectId } from 'mongodb';
 import { CoinModel, ICoin } from '../models/coin';
 import { BlockModel } from '../models/block';
 import { WalletModel, IWallet } from '../models/wallet';
@@ -12,9 +14,7 @@ import { LoggifyClass } from '../decorators/Loggify';
 import { TransactionModel } from '../models/transaction';
 import { StateModel } from '../models/state';
 import { ListTransactionsStream } from './transforms';
-import { ObjectID } from 'bson';
-import { stringifyJsonStream } from '../utils/stringifyJsonStream';
-import { MongoBound } from "../models/base";
+import { StringifyJsonStream } from '../utils/stringifyJsonStream';
 
 @LoggifyClass
 export class InternalStateProvider implements CSP.IChainStateService {
@@ -200,7 +200,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
     const query = { chain, network, wallets: walletId, spentHeight: { $gte: 0 } };
     const cursor = CoinModel.collection.find(query);
     const seen = {};
-    const stringifyWallets = (wallets: Array<ObjectID>) => wallets.map(w => w.toHexString());
+    const stringifyWallets = (wallets: Array<ObjectId>) => wallets.map(w => w.toHexString());
     const missingStream = cursor.pipe(
       through2({ objectMode: true }, async (spentCoin: MongoBound<ICoin>, _, done) => {
         console.log(spentCoin.spentTxid);
@@ -220,7 +220,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
         }
       })
     );
-    missingStream.pipe(stringifyJsonStream).pipe(stream);
+    missingStream.pipe(new StringifyJsonStream()).pipe(stream);
   }
 
   async updateWallet(params: CSP.UpdateWalletParams) {

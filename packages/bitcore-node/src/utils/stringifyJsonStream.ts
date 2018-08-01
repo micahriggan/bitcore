@@ -1,6 +1,6 @@
 import { Transform } from 'stream';
 
-class StringifyJsonStream extends Transform {
+export class StringifyJsonStream extends Transform {
   constructor() {
     super({ objectMode: true });
   }
@@ -11,4 +11,3 @@ class StringifyJsonStream extends Transform {
   }
 }
 
-export const stringifyJsonStream = new StringifyJsonStream();
