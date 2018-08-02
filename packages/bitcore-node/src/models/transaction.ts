@@ -135,12 +135,13 @@ export class Transaction extends BaseModel<ITransaction> {
       });
       megaOr = megaOr.concat(spentInputQueries);
     }
+    console.log('Mega OR Len', megaOr.length);
     const coinInputs = await CoinModel.collection
       .aggregate<{ _id: string; total: number }>([
         { $match: { $or: megaOr } },
         { $group: { _id: '$mintTxid', total: { $sum: '$value' } } }
-      ])
-      .toArray();
+      ]).toArray();
+    console.log('Aggregate finished');
 
     for (let input of coinInputs) {
       totalInput[input._id] = input.total;
@@ -185,6 +186,7 @@ export class Transaction extends BaseModel<ITransaction> {
         }
       });
     }
+    console.log('Returning txops', txOps.length);
     return txOps;
   }
 
