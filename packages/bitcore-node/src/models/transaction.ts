@@ -139,8 +139,10 @@ export class Transaction extends BaseModel<ITransaction> {
       });
 
 
+      console.log({$or: spentInputs});
       const coinInputs = await CoinModel.collection.find({$or: spentInputs}).toArray();
-      const totalInput = coinInputs.reduce((total, current) => total + current.value, 0);
+      const totalInput = coinInputs.reduce((total, current) => total + Number(current.value), 0);
+      console.log(totalInput);
       const totalOutput = tx.outputAmount;
 
 
