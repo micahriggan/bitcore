@@ -119,11 +119,13 @@ export class Transaction extends BaseModel<ITransaction> {
         .toArray();
     }
 
-    let txOps = txs.map(async(tx, index) => {
+    let txOps = new Array<any>();
+    for (let i = 0; i < txs.length; i++) {
+      const tx = txs[i];
       let wallets = new Array<ObjectID>();
       if (initialSyncComplete) {
         const walletTxGroups = mintedTxWallets.concat(spentTxWallets);
-        for (let wallet of walletTxGroups.filter(walletTxGroup => walletTxGroup._id === txids[index])) {
+        for (let wallet of walletTxGroups.filter(walletTxGroup => walletTxGroup._id === txids[i])) {
           for (let walletMatch of wallet.wallets) {
             if (!wallets.find(wallet => wallet.toHexString() === walletMatch.toHexString())) {
               wallets.push(walletMatch);
@@ -147,11 +149,11 @@ export class Transaction extends BaseModel<ITransaction> {
       const coinInputs = await CoinModel.collection.find({ $or: spentInputs }).toArray();
       const totalInput = coinInputs.reduce((total, current) => total + Number(current.value), 0);
       const totalOutput = tx.outputAmount;
-      console.log('Done finding inputs', {fee: totalInput - totalOutput});
+      console.log('Done finding inputs', { fee: totalInput - totalOutput });
 
-      return {
+      txOps.push({
         updateOne: {
-          filter: { txid: txids[index], chain, network },
+          filter: { txid: txids[i], chain, network },
           update: {
             $set: {
               chain,
@@ -170,9 +172,9 @@ export class Transaction extends BaseModel<ITransaction> {
           upsert: true,
           forceServerObjectId: true
         }
-      };
-    });
-    return Promise.all(txOps);
+      });
+    }
+    return txOps;
   }
 
   async getMintOps(params: {
