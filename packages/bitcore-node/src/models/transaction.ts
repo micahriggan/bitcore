@@ -120,7 +120,7 @@ export class Transaction extends BaseModel<ITransaction> {
         .toArray();
     }
 
-    let txOps = txs.map(async (tx, index) => {
+    let txOps = txs.map(async(tx, index) => {
       let wallets = new Array<ObjectID>();
       if (initialSyncComplete) {
         const walletTxGroups = mintedTxWallets.concat(spentTxWallets);
@@ -171,7 +171,7 @@ export class Transaction extends BaseModel<ITransaction> {
         }
       };
     });
-    return txOps;
+    return Promise.all(txOps);
   }
 
   async getMintOps(params: {
