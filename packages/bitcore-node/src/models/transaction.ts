@@ -70,13 +70,13 @@ export class Transaction extends BaseModel<ITransaction> {
       spendOps = spendOps.map((spendBatch: Array<any>) =>
         CoinModel.collection.bulkWrite(spendBatch, { ordered: false })
       );
+      await Promise.all(spendOps);
     }
+
 
     let txOps = await this.addTransactions(params);
     logger.debug('Writing Transactions', txOps.length);
-    let txs = TransactionModel.collection.bulkWrite(txOps, { ordered: false });
-
-    await Promise.all(spendOps.concat([txs]));
+    await TransactionModel.collection.bulkWrite(txOps, { ordered: false });
   }
 
   async addTransactions(params: {
@@ -136,12 +136,13 @@ export class Transaction extends BaseModel<ITransaction> {
     const coinInputs = await CoinModel.collection
       .aggregate<{ _id: string; total: number }>([
         { $match: { $or: megaOr } },
-        { $group: { _id: '$mintTxid', total: { $sum: '$value' } } }
+        { $group: { _id: '$spentTxid', total: { $sum: '$value' } } }
       ])
       .toArray();
     console.log('Aggregate finished');
 
     for (let input of coinInputs) {
+      console.log(input._id, input.total);
       totalInput[input._id] = input.total;
     }
 
