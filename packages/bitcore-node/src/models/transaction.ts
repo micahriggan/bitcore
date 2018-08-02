@@ -119,7 +119,7 @@ export class Transaction extends BaseModel<ITransaction> {
     let totalInput: { [txid: string]: number } = {};
     let megaOr = new Array<any>();
     for (let tx of txs) {
-      console.log('Finding inputs for ', tx._hash);
+      //console.log('Finding inputs for ', tx._hash);
       const spentInputQueries = tx.inputs.map(input => {
         const txInput = input.toObject();
         if (txInput) {
@@ -132,17 +132,17 @@ export class Transaction extends BaseModel<ITransaction> {
       });
       megaOr = megaOr.concat(spentInputQueries);
     }
-    console.log('Mega OR Len', megaOr.length);
+    //console.log('Mega OR Len', megaOr.length);
     const coinInputs = await CoinModel.collection
       .aggregate<{ _id: string; total: number }>([
         { $match: { $or: megaOr } },
         { $group: { _id: '$spentTxid', total: { $sum: '$value' } } }
       ])
       .toArray();
-    console.log('Aggregate finished');
+    //console.log('Aggregate finished');
 
     for (let input of coinInputs) {
-      console.log(input._id, input.total);
+      //console.log(input._id, input.total);
       totalInput[input._id] = input.total;
     }
 
@@ -185,7 +185,7 @@ export class Transaction extends BaseModel<ITransaction> {
         }
       });
     }
-    console.log('Returning txops', txOps.length);
+    //console.log('Returning txops', txOps.length);
     return txOps;
   }
 
