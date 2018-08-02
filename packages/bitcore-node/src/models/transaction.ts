@@ -99,7 +99,7 @@ export class Transaction extends BaseModel<ITransaction> {
     let mintedTxWallets;
     let spentTxWallets;
 
-    if (initialSyncComplete){
+    if (initialSyncComplete) {
       mintedTxWallets = await CoinModel.collection
         .aggregate<TaggedCoin>([
           { $match: { mintTxid: { $in: txids }, chain, network } },
@@ -117,10 +117,9 @@ export class Transaction extends BaseModel<ITransaction> {
         .toArray();
     }
 
-
-    let txOps = txs.map((tx, index) => {
+    let txOps = txs.map(async (tx, index) => {
       let wallets = new Array<ObjectID>();
-      if (initialSyncComplete){
+      if (initialSyncComplete) {
         const walletTxGroups = mintedTxWallets.concat(spentTxWallets);
         for (let wallet of walletTxGroups.filter(walletTxGroup => walletTxGroup._id === txids[index])) {
           for (let walletMatch of wallet.wallets) {
@@ -130,6 +129,21 @@ export class Transaction extends BaseModel<ITransaction> {
           }
         }
       }
+
+      const spentInputs = tx.inputs.map(input => {
+        const txInput = input.toObject();
+        return {
+          mintTxid: txInput.prevTxId,
+          mintIndex: txInput.outputIndex
+        };
+      });
+
+
+      const coinInputs = await CoinModel.collection.find({$or: spentInputs}).toArray();
+      const totalInput = coinInputs.reduce((total, current) => total + current.value, 0);
+      const totalOutput = tx.outputAmount;
+
+
 
       return {
         updateOne: {
@@ -145,6 +159,7 @@ export class Transaction extends BaseModel<ITransaction> {
               coinbase: tx.isCoinbase(),
               size: tx.toBuffer().length,
               locktime: tx.nLockTime,
+              fee: totalInput - totalOutput,
               wallets
             }
           },
@@ -182,6 +197,8 @@ export class Transaction extends BaseModel<ITransaction> {
       tx._hash = tx.hash;
       let txid = tx._hash;
       let isCoinbase = tx.isCoinbase();
+
+
       for (let [index, output] of tx.outputs.entries()) {
         let parentChainCoin = parentChainCoins.find(
           (parentChainCoin: ICoin) => parentChainCoin.mintTxid === txid && parentChainCoin.mintIndex === index

@@ -1,112 +1,60 @@
-import { CoinModel } from '../models/coin';
+import { ICoin } from '../models/coin';
 import { Transform } from 'stream';
-import { IWallet } from '../models/wallet';
-import { MongoBound } from '../models/base';
+import { TransactionModel } from '../models/transaction';
 
 export class ListTransactionsStream extends Transform {
-  allWritten = new Array<Promise<any>>();
+  seen: { [txid: string]: boolean } = {};
 
-  constructor(private wallet: MongoBound<IWallet>) {
+  constructor() {
     super({
-      objectMode: true,
-      highWaterMark: 1000
+      objectMode: true
     });
   }
 
-  async writeTxToStream(transaction) {
-    const [inputs, outputs] = await Promise.all([
-      CoinModel.collection
-        .find({
-          chain: transaction.chain,
-          network: transaction.network,
-          spentTxid: transaction.txid
-        })
-        .addCursorFlag('noCursorTimeout', true)
-        .toArray(),
-      CoinModel.collection
-        .find({
-          chain: transaction.chain,
-          network: transaction.network,
-          mintTxid: transaction.txid
-        })
-        .addCursorFlag('noCursorTimeout', true)
-        .toArray()
-    ]);
-
-    transaction.inputs = inputs;
-    transaction.outputs = outputs;
-    const wallet = this.wallet._id!.toString();
-    const sending = transaction.inputs.some(input => {
-      let contains = false;
-      for (let inputWallet of input.wallets) {
-        if (inputWallet.equals(wallet)) {
-          contains = true;
+  async writeTxToStream(coin: ICoin) {
+    if (coin.spentTxid) {
+      if (!this.seen[coin.spentTxid]) {
+        const spentTx = await TransactionModel.collection.findOne({ txid: coin.spentTxid });
+        if (spentTx) {
+          const fee = spentTx.fee;
+          this.push(
+            JSON.stringify({
+              txid: coin.spentTxid,
+              category: 'fee',
+              satoshis: -fee,
+              height: coin.spentHeight
+            }) + '\n'
+          );
         }
       }
-      return contains;
-    });
-
-    const totalInputs = transaction.inputs.reduce((total, input) => {
-      return total + input.value;
-    }, 0);
-    let totalOutputs = 0;
-
-    for (let output of transaction.outputs) {
-      totalOutputs += output.value;
-      if (sending) {
-        this.push(
-          JSON.stringify({
-            txid: transaction.txid,
-            category: 'send',
-            satoshis: -output.value,
-            height: transaction.blockHeight,
-            address: output.address,
-            outputIndex: output.vout,
-            blockTime: transaction.blockTimeNormalized
-          }) + '\n'
-        );
-      }
-      let receiving = false;
-      for (let outputWallet of output.wallets) {
-        if (outputWallet.equals(wallet)) {
-          receiving = true;
-        }
-      }
-      if (receiving) {
-        this.push(
-          JSON.stringify({
-            txid: transaction.txid,
-            category: 'receive',
-            satoshis: output.value,
-            height: transaction.blockHeight,
-            address: output.address,
-            outputIndex: output.vout,
-            blockTime: transaction.blockTimeNormalized
-          }) + '\n'
-        );
-      }
-    }
-    const fee = totalInputs - totalOutputs;
-    if (sending && fee > 0) {
       this.push(
         JSON.stringify({
-          txid: transaction.txid,
-          category: 'fee',
-          satoshis: -fee,
-          height: transaction.blockHeight,
-          blockTime: transaction.blockTimeNormalized
+          txid: coin.spentTxid,
+          category: 'send',
+          satoshis: -coin.value,
+          height: coin.spentHeight,
+          address: coin.address,
+          outputIndex: coin.mintIndex
+        }) + '\n'
+      );
+    }
+
+    if (coin.mintTxid) {
+      this.push(
+        JSON.stringify({
+          txid: coin.mintTxid,
+          category: 'receive',
+          satoshis: coin.value,
+          height: coin.mintHeight,
+          address: coin.address,
+          outputIndex: coin.mintIndex
         }) + '\n'
       );
     }
   }
 
-  _transform(tx, _, done) {
-    this.allWritten.push(this.writeTxToStream(tx));
+  async _transform(coin, _, done) {
+    await this.writeTxToStream(coin);
     done();
-  }
-
-  async _flush(cb) {
-    await Promise.all(this.allWritten);
-    cb();
   }
 }
