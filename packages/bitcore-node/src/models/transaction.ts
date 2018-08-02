@@ -75,7 +75,6 @@ export class Transaction extends BaseModel<ITransaction> {
     let txOps = await this.addTransactions(params);
     logger.debug('Writing Transactions', txOps.length);
     const txBatches = partition(txOps, txOps.length / config.maxPoolSize);
-    console.log(txBatches);
     const txs = txBatches.map((txBatch: Array<any>) =>
       TransactionModel.collection.bulkWrite(txBatch, { ordered: false })
     );
