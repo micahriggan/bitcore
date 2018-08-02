@@ -1,32 +1,19 @@
 import { ICoin } from '../models/coin';
 import { Transform } from 'stream';
-import { TransactionModel } from '../models/transaction';
+import { TransactionModel, ITransaction } from '../models/transaction';
+import { MongoBound } from '../models/base';
+import { IWallet } from '../models/wallet';
+import through2 from 'through2';
 
 export class ListTransactionsStream extends Transform {
-  seen: { [txid: string]: boolean } = {};
-
-  constructor() {
+  constructor(private wallet: MongoBound<IWallet>) {
     super({
       objectMode: true
     });
   }
 
-  async writeTxToStream(coin: ICoin) {
+  writeTxToStream(coin: ICoin) {
     if (coin.spentTxid) {
-      if (!this.seen[coin.spentTxid]) {
-        const spentTx = await TransactionModel.collection.findOne({ txid: coin.spentTxid });
-        if (spentTx) {
-          const fee = spentTx.fee;
-          this.push(
-            JSON.stringify({
-              txid: coin.spentTxid,
-              category: 'fee',
-              satoshis: -fee,
-              height: coin.spentHeight
-            }) + '\n'
-          );
-        }
-      }
       this.push(
         JSON.stringify({
           txid: coin.spentTxid,
@@ -53,8 +40,29 @@ export class ListTransactionsStream extends Transform {
     }
   }
 
-  async _transform(coin, _, done) {
-    await this.writeTxToStream(coin);
+  async _flush(done) {
+    // write all the wallet fees at the end
+    TransactionModel.collection.find({ wallets: this.wallet._id }).pipe(
+      through2(
+        { objectMode: true },
+        (tx: ITransaction, _, inner) => {
+          inner(
+            null,
+            JSON.stringify({
+              txid: tx.txid,
+              category: 'fee',
+              satoshis: -tx.fee,
+              height: tx.blockHeight
+            }) + '\n'
+          );
+        },
+        done
+      )
+    );
+  }
+
+  _transform(coin, _, done) {
+    this.writeTxToStream(coin);
     done();
   }
 }

@@ -277,7 +277,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
       }
     }
     const walletCoins = CoinModel.collection.find(query);
-    const listTransactionsStream = new ListTransactionsStream();
+    const listTransactionsStream = new ListTransactionsStream(wallet);
     walletCoins.pipe(listTransactionsStream).pipe(stream);
   }
 
