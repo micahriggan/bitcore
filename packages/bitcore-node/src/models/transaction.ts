@@ -95,7 +95,7 @@ export class Transaction extends BaseModel<ITransaction> {
     network: string;
   }) {
     let { blockHash, blockTime, blockTimeNormalized, chain, height, network, txs, initialSyncComplete } = params;
-    let txids = txs.map(tx => tx._hash);
+    let txids = txs.map(tx => tx._hash) as Array<string>;
 
     type TaggedCoin = ICoin & { _id: string };
     let mintedTxWallets;
@@ -119,6 +119,33 @@ export class Transaction extends BaseModel<ITransaction> {
         .toArray();
     }
 
+    let totalInput: { [txid: string]: number } = {};
+    let megaOr = new Array<any>();
+    for (let tx of txs) {
+      console.log('Finding inputs for ', tx._hash);
+      const spentInputQueries = tx.inputs.map(input => {
+        const txInput = input.toObject();
+        if (txInput) {
+          return {
+            mintTxid: txInput.prevTxId,
+            mintIndex: txInput.outputIndex
+          };
+        }
+        return;
+      });
+      megaOr = megaOr.concat(spentInputQueries);
+    }
+    const coinInputs = await CoinModel.collection
+      .aggregate<{ _id: string; total: number }>([
+        { $match: { $or: megaOr } },
+        { $group: { _id: '$mintTxid', total: { $sum: '$value' } } }
+      ])
+      .toArray();
+
+    for (let input of coinInputs) {
+      totalInput[input._id] = input.total;
+    }
+
     let txOps = new Array<any>();
     for (let i = 0; i < txs.length; i++) {
       const tx = txs[i];
@@ -134,23 +161,7 @@ export class Transaction extends BaseModel<ITransaction> {
         }
       }
 
-      const spentInputs = tx.inputs.map(input => {
-        const txInput = input.toObject();
-        if (txInput) {
-          return {
-            mintTxid: txInput.prevTxId,
-            mintIndex: txInput.outputIndex
-          };
-        }
-        return;
-      });
-
-      console.log('Finding inputs for ', tx._hash);
-      const coinInputs = await CoinModel.collection.find({ $or: spentInputs }).toArray();
-      const totalInput = coinInputs.reduce((total, current) => total + Number(current.value), 0);
-      const totalOutput = tx.outputAmount;
-      console.log('Done finding inputs', { fee: totalInput - totalOutput });
-
+      const totalOut = tx.outputAmount;
       txOps.push({
         updateOne: {
           filter: { txid: txids[i], chain, network },
@@ -165,7 +176,7 @@ export class Transaction extends BaseModel<ITransaction> {
               coinbase: tx.isCoinbase(),
               size: tx.toBuffer().length,
               locktime: tx.nLockTime,
-              fee: totalInput - totalOutput,
+              fee: totalInput[txids[i]] - totalOut,
               wallets
             }
           },
