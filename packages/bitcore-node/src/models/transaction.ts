@@ -143,9 +143,11 @@ export class Transaction extends BaseModel<ITransaction> {
         return;
       });
 
+      console.log('Finding inputs for ', tx._hash);
       const coinInputs = await CoinModel.collection.find({ $or: spentInputs }).toArray();
       const totalInput = coinInputs.reduce((total, current) => total + Number(current.value), 0);
       const totalOutput = tx.outputAmount;
+      console.log('Done finding inputs', {fee: totalInput - totalOutput});
 
       return {
         updateOne: {
