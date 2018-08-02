@@ -75,7 +75,9 @@ export class Transaction extends BaseModel<ITransaction> {
     let txOps = await this.addTransactions(params);
     logger.debug('Writing Transactions', txOps.length);
     const txBatches = partition(txOps, txOps.length / config.maxPoolSize);
-    const txs = txBatches.map((txBatch: Array<any>) => this.collection.bulkWrite(txBatch, { ordered: false }));
+    const txs = txBatches.map((txBatch: Array<any>) =>
+      TransactionModel.collection.bulkWrite(txBatch, { ordered: false })
+    );
 
     await Promise.all(spendOps.concat(txs));
   }
@@ -132,20 +134,18 @@ export class Transaction extends BaseModel<ITransaction> {
 
       const spentInputs = tx.inputs.map(input => {
         const txInput = input.toObject();
-        return {
-          mintTxid: txInput.prevTxId,
-          mintIndex: txInput.outputIndex
-        };
+        if (txInput) {
+          return {
+            mintTxid: txInput.prevTxId,
+            mintIndex: txInput.outputIndex
+          };
+        }
+        return;
       });
 
-
-      console.log({$or: spentInputs});
-      const coinInputs = await CoinModel.collection.find({$or: spentInputs}).toArray();
+      const coinInputs = await CoinModel.collection.find({ $or: spentInputs }).toArray();
       const totalInput = coinInputs.reduce((total, current) => total + Number(current.value), 0);
       const totalOutput = tx.outputAmount;
-      console.log(totalInput, totalOutput);
-
-
 
       return {
         updateOne: {
@@ -199,7 +199,6 @@ export class Transaction extends BaseModel<ITransaction> {
       tx._hash = tx.hash;
       let txid = tx._hash;
       let isCoinbase = tx.isCoinbase();
-
 
       for (let [index, output] of tx.outputs.entries()) {
         let parentChainCoin = parentChainCoins.find(
