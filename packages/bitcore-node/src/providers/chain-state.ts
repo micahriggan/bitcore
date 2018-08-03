@@ -259,7 +259,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
       if (args.startDate) {
         // find a height near this date
         const [block] = await BlockModel.collection
-          .find({ timeNormalized: { $gte: new Date(args.startDate) } })
+          .find({ chain, network, timeNormalized: { $gte: new Date(args.startDate) } })
           .sort({ height: 1 })
           .limit(1)
           .toArray();
@@ -268,7 +268,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
       if (args.endDate) {
         // find a height near this date
         const [block] = await BlockModel.collection
-          .find({ timeNormalized: { $gte: new Date(args.endDate) } })
+          .find({ chain, network, timeNormalized: { $gte: new Date(args.endDate) } })
           .sort({ height: 1 })
           .limit(1)
           .toArray();
