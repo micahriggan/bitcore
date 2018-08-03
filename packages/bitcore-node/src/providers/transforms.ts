@@ -60,7 +60,7 @@ export class ListTransactionsStream extends Transform {
             }) + '\n'
           );
         },
-        done
+        () => done()
       )
     );
   }

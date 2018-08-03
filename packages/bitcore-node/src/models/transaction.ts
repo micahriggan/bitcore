@@ -1,7 +1,7 @@
 import { CoinModel, ICoin } from './coin';
 import { WalletAddressModel } from './walletAddress';
 import { partition } from '../utils/partition';
-import { ObjectID } from 'bson';
+import { ObjectId } from 'mongodb';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
 import { Bitcoin } from '../types/namespaces/Bitcoin';
@@ -24,7 +24,7 @@ export type ITransaction = {
   fee: number;
   size: number;
   locktime: number;
-  wallets: ObjectID[];
+  wallets: ObjectId[];
 };
 
 @LoggifyClass
@@ -158,7 +158,7 @@ export class Transaction extends BaseModel<ITransaction> {
     let txOps = new Array<any>();
     for (let i = 0; i < txs.length; i++) {
       const tx = txs[i];
-      let wallets = new Array<ObjectID>();
+      let wallets = new Array<ObjectId>();
       if (initialSyncComplete) {
         const walletTxGroups = mintedTxWallets.concat(spentTxWallets);
         for (let wallet of walletTxGroups.filter(walletTxGroup => walletTxGroup._id === txids[i])) {
