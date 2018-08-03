@@ -14,6 +14,7 @@ export class ListTransactionsStream extends Transform {
 
   writeTxToStream(coin: ICoin) {
     if (coin.spentTxid) {
+      console.log('Spending', coin.value);
       this.push(
         JSON.stringify({
           txid: coin.spentTxid,
@@ -27,6 +28,7 @@ export class ListTransactionsStream extends Transform {
     }
 
     if (coin.mintTxid) {
+      console.log('Minting', coin.value);
       this.push(
         JSON.stringify({
           txid: coin.mintTxid,
@@ -42,10 +44,12 @@ export class ListTransactionsStream extends Transform {
 
   async _flush(done) {
     // write all the wallet fees at the end
+    console.log('Flushing');
     TransactionModel.collection.find({ wallets: this.wallet._id }).pipe(
       through2(
         { objectMode: true },
         (tx: ITransaction, _, inner) => {
+          console.log('Fee', tx.fee);
           inner(
             null,
             JSON.stringify({
