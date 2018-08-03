@@ -59,7 +59,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }) {
     let mintOps = await this.getMintOps(params);
     logger.debug('Minting Coins', mintOps.length);
-   
+
     params.mintOps = mintOps || [];
     let spendOps = this.getSpendOps(params);
     logger.debug('Spending Coins', spendOps.length);
@@ -118,14 +118,14 @@ export class Transaction extends BaseModel<ITransaction> {
 
       spentTxWallets = await CoinModel.collection
         .aggregate<TaggedCoin>([
-       { $match: { spentTxid: { $in: txids }, chain, network } },
+          { $match: { spentTxid: { $in: txids }, chain, network } },
           { $unwind: '$wallets' },
           { $group: { _id: '$spentTxid', wallets: { $addToSet: '$wallets' } } }
         ])
         .toArray();
     }
 
-    let totalInput: { [txid: string]: number } = {};
+    let txInputs: { [txid: string]: number } = {};
     let megaOr = new Array<any>();
     for (let tx of txs) {
       //console.log('Finding inputs for ', tx._hash);
@@ -152,7 +152,7 @@ export class Transaction extends BaseModel<ITransaction> {
 
     for (let input of coinInputs) {
       //console.log(input._id, input.total);
-      totalInput[input._id] = input.total;
+      txInputs[input._id] = input.total;
     }
 
     let txOps = new Array<any>();
@@ -171,6 +171,8 @@ export class Transaction extends BaseModel<ITransaction> {
       }
 
       const totalOut = tx.outputAmount;
+      const sumInput = txInputs[txids[i]] || 0;
+      const fee = sumInput - totalOut;
       txOps.push({
         updateOne: {
           filter: { txid: txids[i], chain, network },
@@ -185,7 +187,7 @@ export class Transaction extends BaseModel<ITransaction> {
               coinbase: tx.isCoinbase(),
               size: tx.toBuffer().length,
               locktime: tx.nLockTime,
-              fee: totalInput[txids[i]] - totalOut,
+              fee,
               wallets
             }
           },
@@ -294,7 +296,7 @@ export class Transaction extends BaseModel<ITransaction> {
     network: string;
     mintOps?: Array<any>;
   }): Array<any> {
-    let { chain, network, height, txs, parentChain, forkHeight, mintOps=[] } = params;
+    let { chain, network, height, txs, parentChain, forkHeight, mintOps = [] } = params;
     let spendOps: any[] = [];
     if (parentChain && forkHeight && height < forkHeight) {
       return spendOps;
@@ -312,7 +314,7 @@ export class Transaction extends BaseModel<ITransaction> {
       for (let input of tx.inputs) {
         let inputObj = input.toObject();
         let sameBlockSpend = mintMap[inputObj.prevTxId] && mintMap[inputObj.prevTxId][inputObj.outputIndex];
-        if (sameBlockSpend){
+        if (sameBlockSpend) {
           sameBlockSpend.updateOne.update.$set.spentHeight = height;
           sameBlockSpend.updateOne.update.$set.spentTxid = txid;
           if (config.pruneSpentScripts && height > 0) {
