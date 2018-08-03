@@ -61,7 +61,8 @@ export class ListTransactionsStream extends Transform {
     );
   }
 
-  _transform(coin, _, done) {
+  _transform(coin: ICoin, _, done) {
+    console.log('writing coin', coin.mintTxid);
     this.writeTxToStream(coin);
     done();
   }
