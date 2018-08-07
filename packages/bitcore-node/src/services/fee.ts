@@ -13,15 +13,16 @@ export class FeeService {
     if (Storage.connectionStatus === 'never') {
       await Storage.start({});
     }
+    logger.info('Starting Fee Service for ', chain, network);
     await this.findTxsMissingFee(chain, network);
   }
 
-  startConfigured() {
+  async startConfigured() {
     for (let chain of Object.keys(config.chains)) {
       for (let network of Object.keys(config.chains[chain])) {
         const chainConfig = config.chains[chain][network];
         if (chainConfig && chainConfig.services && chainConfig.services.fee) {
-          Fee.start(chain, network);
+          await Fee.start(chain, network);
         }
       }
     }
@@ -31,7 +32,7 @@ export class FeeService {
     TransactionModel.collection.parallelCollectionScan({ numCursors: 5 }, async (_, cursors) => {
       for (let cursor of cursors) {
         let txids = new Array<string>();
-        while (cursor.hasNext()) {
+        while (await cursor.hasNext()) {
           let tx = await cursor.next();
           if (tx && tx.chain === chain && tx.network === network) {
             if (!tx.fee) {
@@ -68,12 +69,14 @@ export class FeeService {
         { $match: { $or: bulk } },
         {
           $facet: {
-            spends: { $group: { _id: '$spentTxid', total: { $sum: '$value' } } },
-            mints: { $group: { _id: '$mintTxid', total: { $sum: '$value' } } }
+            spends: [{ $group: { _id: '$spentTxid', total: { $sum: '$value' } } }],
+            mints: [{ $group: { _id: '$mintTxid', total: { $sum: '$value' } } }]
           }
         }
       ])
       .toArray();
+
+    logger.debug(JSON.stringify(mintsAndSpends));
 
     const mintMap = mintsAndSpends.mints.reduce((obj, mint) => {
       obj[mint._id] = mint.total;
@@ -85,9 +88,12 @@ export class FeeService {
       return obj;
     }, {});
 
+    logger.debug(JSON.stringify(mintMap));
+    logger.debug(JSON.stringify(spendMap));
+
     for (let txid of txids) {
       if (fees[txid] === undefined) {
-        fees = mintMap[txid] - spendMap[txid];
+        fees[txid] = mintMap[txid] - (spendMap[txid] || 0);
       }
     }
     return fees;
