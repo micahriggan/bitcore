@@ -19,7 +19,7 @@ export type StreamingFindOptions<T> = Partial<{
 export class StorageService {
   client?: MongoClient;
   db?: Db;
-  connected: boolean = false;
+  connectionStatus: 'never' | 'connecting' | 'connected' | 'failed' = 'never';
   connection = new EventEmitter();
 
   start(args: any): Promise<MongoClient> {
@@ -28,6 +28,7 @@ export class StorageService {
       let { dbName, dbHost, dbPort } = options;
       const connectUrl = `mongodb://${dbHost}:${dbPort}/${dbName}?socketTimeoutMS=3600000&noDelay=true`;
       let attemptConnect = async () => {
+        this.connectionStatus = 'connecting';
         return MongoClient.connect(
           connectUrl,
           {
@@ -42,7 +43,7 @@ export class StorageService {
         try {
           this.client = await attemptConnect();
           this.db = this.client.db(dbName);
-          this.connected = true;
+          this.connectionStatus = 'connected';
           clearInterval(attemptConnectId);
           this.connection.emit('CONNECTED');
           resolve(this.client);
@@ -50,6 +51,7 @@ export class StorageService {
           logger.error(err);
           attempted++;
           if (attempted > 5) {
+            this.connectionStatus = 'failed';
             clearInterval(attemptConnectId);
             reject(new Error('Failed to connect to database'));
           }

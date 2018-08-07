@@ -2,6 +2,7 @@ import { P2pService } from './services/p2p';
 import { Storage } from './services/storage';
 import { Worker } from './services/worker';
 import { Api } from './services/api';
+import { Fee } from "./services/fee";
 import cluster = require('cluster');
 import parseArgv from './utils/parseArgv';
 let args = parseArgv([], ['DEBUG']);
@@ -9,7 +10,8 @@ let args = parseArgv([], ['DEBUG']);
 const startServices = async () => {
   await Storage.start({});
   await Worker.start();
-  P2pService.startConfiguredChains();
+  P2pService.startConfigured();
+  Fee.startConfigured();
 };
 
 const runMaster = async() => {

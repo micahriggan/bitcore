@@ -1,4 +1,3 @@
-import mongoose from 'mongoose';
 import app from '../routes';
 import logger from '../logger';
 import config from '../config';
@@ -7,22 +6,18 @@ import { Storage } from './storage';
 
 @LoggifyClass
 export class ApiService {
-
   port: number;
   timeout: number;
 
-  constructor(options){
-    const {
-      port,
-      timeout
-    } = options;
+  constructor(options) {
+    const { port, timeout } = options;
 
     this.port = port || 3000;
     this.timeout = timeout || 600000;
   }
 
-  async start(){
-    if(mongoose.connection.readyState !== 1){
+  async start() {
+    if (Storage.connectionStatus === 'never') {
       await Storage.start({});
     }
     const server = app.listen(this.port, () => {
@@ -31,8 +26,7 @@ export class ApiService {
     server.timeout = this.timeout;
   }
 
-  stop(){}
-
+  stop() {}
 }
 
 // TOOO: choose a place in the config for the API timeout and include it here

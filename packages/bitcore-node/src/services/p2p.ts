@@ -143,7 +143,7 @@ export class P2pService {
     });
   }
 
-  static startConfiguredChains() {
+  static startConfigured() {
     for (let chain of Object.keys(config.chains)) {
       for (let network of Object.keys(config.chains[chain])) {
         const chainConfig = config.chains[chain][network];
