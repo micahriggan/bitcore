@@ -39,8 +39,8 @@ export class FeeService {
               txids.push(tx.txid);
             }
           }
-          if (txids.length % 1000 === 0) {
-            logger.info('Processing 1000 transaction fees');
+          if (txids.length % 5000 === 0) {
+            logger.info('Processing 5000 transaction fees');
             const fees = await this.getFeeMapping(chain, network, txids);
             await this.updateFees(chain, network, fees);
             txids = [];
@@ -63,7 +63,9 @@ export class FeeService {
       bulk.push({ chain, network, spentTxid: txid });
       bulk.push({ chain, network, mintTxid: txid });
     }
-
+    if (bulk.length === 0) {
+      return {};
+    }
     const [mintsAndSpends] = await CoinModel.collection
       .aggregate<{ mints: Array<TxidTotal>; spends: Array<TxidTotal> }>([
         { $match: { $or: bulk } },
@@ -93,7 +95,10 @@ export class FeeService {
 
     for (let txid of txids) {
       if (fees[txid] === undefined) {
-        fees[txid] = mintMap[txid] - (spendMap[txid] || 0);
+        if (spendMap[txid] !== undefined) {
+          // no point in adding fee if nothing has been spent yet
+          fees[txid] = mintMap[txid] - spendMap[txid];
+        }
       }
     }
     return fees;
@@ -105,7 +110,9 @@ export class FeeService {
       bulkOps.push({ updateOne: { filter: { chain, network, txid }, update: { $set: { fee: fees[txid] } } } });
     }
     logger.debug(`Writing ${bulkOps.length} fees`);
-    await TransactionModel.collection.bulkWrite(bulkOps);
+    if (bulkOps.length > 0) {
+      await TransactionModel.collection.bulkWrite(bulkOps);
+    }
   }
 
   stop() {}
