@@ -1,6 +1,6 @@
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel } from './base';
-import { ObjectID } from 'mongodb';
+import { ObjectId } from 'mongodb';
 
 const Chain = require('../chain');
 
