@@ -1,19 +1,51 @@
-import config from '../config';
-import logger from '../logger';
+import config from '../../config';
+import logger from '../../logger';
 import { EventEmitter } from 'events';
-import { BlockModel } from '../models/block';
-import { ChainStateProvider } from '../providers/chain-state';
-import { TransactionModel } from '../models/transaction';
-import { Bitcoin } from '../types/namespaces/Bitcoin';
-import { StateModel } from '../models/state';
-const Chain = require('../chain');
+import { BlockModel } from '../../models/block';
+import { ChainStateProvider } from '../../providers/chain-state';
+import { TransactionModel } from '../../models/transaction';
+import { Bitcoin } from '../../types/namespaces/Bitcoin';
+import { StateModel } from '../../models/state';
+let ETHP2P =  require('ethereumjs-devp2p');
+const ETH: ETH = ETHP2P.ETH;
 const LRU = require('lru-cache');
 
-export class P2pService {
+type MESSAGE_CODES = {
+  // eth62
+  STATUS: 0x00,
+  NEW_BLOCK_HASHES: 0x01,
+  TX: 0x02,
+  GET_BLOCK_HEADERS: 0x03,
+  BLOCK_HEADERS: 0x04,
+  GET_BLOCK_BODIES: 0x05,
+  BLOCK_BODIES: 0x06,
+  NEW_BLOCK: 0x07,
+  // eth63
+  GET_NODE_DATA: 0x0d,
+  NODE_DATA: 0x0e,
+  GET_RECEIPTS: 0x0f,
+  RECEIPTS: 0x10
+}
+
+export interface ETH {
+  constructor (version, peer, send);
+  eth62 : { name: 'eth', version: 62, length: 8, constructor: ETH }
+  eth63 : { name: 'eth', version: 63, length: 17, constructor: ETH }
+  MESSAGE_CODES : MESSAGE_CODES
+  _handleMessage (code: number, data: Buffer) ;
+  _handleStatus ();
+  getVersion (): number ;
+  _getStatusString (status: Array<any>);
+  sendStatus (status: Array<any>): Array<any> | void;
+  sendStatus (status: Array<any>);
+  sendMessage (code: number, payload: any);
+  getMsgPrefix (msgCode: number): string;
+}
+
+
+export class EthP2pService {
   private chain: string;
   private network: string;
-  private bitcoreLib: any;
-  private bitcoreP2p: any;
   private chainConfig: any;
   private events: EventEmitter;
   private syncing: boolean;
@@ -25,30 +57,11 @@ export class P2pService {
     const { chain, network, chainConfig } = params;
     this.chain = chain;
     this.network = network;
-    this.bitcoreLib = Chain[this.chain].lib;
-    this.bitcoreP2p = Chain[this.chain].p2p;
     this.chainConfig = chainConfig;
     this.events = new EventEmitter();
     this.syncing = true;
     this.initialSyncComplete = false;
     this.invCache = new LRU({ max: 10000 });
-    this.messages = new this.bitcoreP2p.Messages({
-      network: this.bitcoreLib.Networks.get(this.network)
-    });
-    this.pool = new this.bitcoreP2p.Pool({
-      addrs: this.chainConfig.trustedPeers.map(peer => {
-        return {
-          ip: {
-            v4: peer.host
-          },
-          port: peer.port
-        };
-      }),
-      dnsSeed: false,
-      listenAddr: false,
-      network: this.network,
-      messages: this.messages
-    });
   }
 
   setupListeners() {
