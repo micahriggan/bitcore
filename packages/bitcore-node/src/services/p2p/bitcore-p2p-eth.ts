@@ -25,9 +25,7 @@ const BOOTNODES = require('ethereum-common')
   });
 const REMOTE_CLIENTID_FILTER = ['go1.5', 'go1.6', 'go1.7', 'quorum', 'pirl', 'ubiq', 'gmc', 'gwhale', 'prichain'];
 
-const CHECK_BLOCK_TITLE = 'Byzantium Fork'; // Only for debugging/console output
 const CHECK_BLOCK_NR = 4370000;
-const CHECK_BLOCK = 'b1fcff633029ee18ab6482b58ff8b6e95dd7c82a954c852157152a7a6d32785e';
 const CHECK_BLOCK_HEADER = rlp.decode(
   Buffer.from(
     'f9020aa0a0890da724dd95c90a72614c3a906e402134d3859865f715f5dfb398ac00f955a01dcc4de8dec75d7aab85b567b6ccd41ad312451b948a7413f0a142fd40d49347942a65aca4d5fc5b5c859090a6c34d164135398226a074cccff74c5490fbffc0e6883ea15c0e1139e2652e671f31f25f2a36970d2f87a00e750bf284c2b3ed1785b178b6f49ff3690a3a91779d400de3b9a3333f699a80a0c68e3e82035e027ade5d966c36a1d49abaeec04b83d64976621c355e58724b8bb90100040019000040000000010000000000021000004020100688001a05000020816800000010a0000100201400000000080100020000000400080000800004c0200000201040000000018110400c000000200001000000280000000100000010010080000120010000050041004000018000204002200804000081000011800022002020020140000000020005080001800000000008102008140008600000000100000500000010080082002000102080000002040120008820400020100004a40801000002a0040c000010000114000000800000050008300020100000000008010000000100120000000040000000808448200000080a00000624013000000080870552416761fabf83475b02836652b383661a72845a25c530894477617266506f6f6ca0dc425fdb323c469c91efac1d2672dfdd3ebfde8fa25d68c1b3261582503c433788c35ca7100349f430',
@@ -49,7 +47,7 @@ const dpt = new devp2p.DPT(PRIVATE_KEY, {
 
 dpt.on('error', err => console.error(chalk.red(`DPT error: ${err}`)));
 
-class bitcoreP2PEth extends EventEmitter {
+export class BitcoreP2PEth extends EventEmitter {
   // RLPx
   rlpx = new devp2p.RLPx(PRIVATE_KEY, {
     dpt: dpt,
@@ -59,10 +57,18 @@ class bitcoreP2PEth extends EventEmitter {
     listenPort: null
   });
 
+  blocksCache = new LRUCache({ max: 10000 });
+  txCache = new LRUCache({ max: 10000 });
+
   peers = {};
 
   constructor() {
     super();
+  }
+
+  connect() {
+    this.setupListeners();
+    this.establishHeartbeat();
   }
 
   setupListeners() {
@@ -109,8 +115,8 @@ class bitcoreP2PEth extends EventEmitter {
             if (!forkVerified) break;
 
             for (let item of payload) {
-              const blockHash = item[0];
-              if (this.blocksCache.has(blockHash.toString('hex'))) continue;
+              const blockHash = item[0].toString('hex');
+              if (this.blocksCache.has(blockHash)) continue;
               setTimeout(() => {
                 eth.sendMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_HEADERS, [blockHash, 1, 0, 0]);
                 requests.headers.push(blockHash);
@@ -120,7 +126,6 @@ class bitcoreP2PEth extends EventEmitter {
 
           case devp2p.ETH.MESSAGE_CODES.TX:
             if (!forkVerified) break;
-
             for (let item of payload) {
               const tx = new EthereumTx(item);
               if (this.isValidTx(tx)) this.onNewTx(tx, peer);
@@ -130,11 +135,10 @@ class bitcoreP2PEth extends EventEmitter {
 
           case devp2p.ETH.MESSAGE_CODES.GET_BLOCK_HEADERS:
             const headers = new Array<any>();
-            // hack
+            // this is for byzantium fork?
             if (devp2p._util.buffer2int(payload[0]) === CHECK_BLOCK_NR) {
               headers.push(CHECK_BLOCK_HEADER);
             }
-
             if (requests.headers.length === 0 && requests.msgTypes[code] >= 8) {
               peer.disconnect(devp2p.RLPx.DISCONNECT_REASONS.USELESS_PEER);
             } else {
@@ -143,47 +147,8 @@ class bitcoreP2PEth extends EventEmitter {
             break;
 
           case devp2p.ETH.MESSAGE_CODES.BLOCK_HEADERS:
-            if (!forkVerified) {
-              if (payload.length !== 1) {
-                console.log(
-                  `${addr} expected one header for ${CHECK_BLOCK_TITLE} verify (received: ${payload.length})`
-                );
-                peer.disconnect(devp2p.RLPx.DISCONNECT_REASONS.USELESS_PEER);
-                break;
-              }
-
-              const expectedHash = CHECK_BLOCK;
-              const header = new EthereumBlock.Header(payload[0]);
-              if (header.hash().toString('hex') === expectedHash) {
-                console.log(`${addr} verified to be on the same side of the ${CHECK_BLOCK_TITLE}`);
-                clearTimeout(forkDrop);
-                forkVerified = true;
-              }
-            } else {
-              if (payload.length > 1) {
-                console.log(`${addr} not more than one block header expected (received: ${payload.length})`);
-                break;
-              }
-
-              let isValidPayload = false;
-              const header = new EthereumBlock.Header(payload[0]);
-              while (requests.headers.length > 0) {
-                const blockHash = requests.headers.shift();
-                if (header.hash().equals(blockHash)) {
-                  isValidPayload = true;
-                  setTimeout(() => {
-                    eth.sendMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_BODIES, [blockHash]);
-                    requests.bodies.push(header);
-                  }, ms('0.1s'));
-                  break;
-                }
-              }
-
-              if (!isValidPayload) {
-                console.log(`${addr} received wrong block header ${header.hash().toString('hex')}`);
-              }
-            }
-
+            const blockHeaders = payload.map(header => new EthereumBlock.Header(header));
+            this.emit('headers', blockHeaders);
             break;
 
           case devp2p.ETH.MESSAGE_CODES.GET_BLOCK_BODIES:
@@ -195,13 +160,6 @@ class bitcoreP2PEth extends EventEmitter {
             break;
 
           case devp2p.ETH.MESSAGE_CODES.BLOCK_BODIES:
-            if (!forkVerified) break;
-
-            if (payload.length !== 1) {
-              console.log(`${addr} not more than one block body expected (received: ${payload.length})`);
-              break;
-            }
-
             let isValidPayload = false;
             while (requests.bodies.length > 0) {
               const header = requests.bodies.shift();
@@ -209,6 +167,7 @@ class bitcoreP2PEth extends EventEmitter {
               const isValid = await this.isValidBlock(block);
               if (isValid) {
                 isValidPayload = true;
+                this.emit(block.hash(), block);
                 this.onNewBlock(block, peer);
                 break;
               }
@@ -222,11 +181,9 @@ class bitcoreP2PEth extends EventEmitter {
 
           case devp2p.ETH.MESSAGE_CODES.NEW_BLOCK:
             if (!forkVerified) break;
-
             const newBlock = new EthereumBlock(payload[0]);
             const isValidNewBlock = await this.isValidBlock(newBlock);
             if (isValidNewBlock) this.onNewBlock(newBlock, peer);
-
             break;
 
           case devp2p.ETH.MESSAGE_CODES.GET_NODE_DATA:
@@ -301,21 +258,19 @@ class bitcoreP2PEth extends EventEmitter {
       );
     }, ms('30s'));
   }
-  txCache = new LRUCache({ max: 1000 });
+
   onNewTx(tx, peer) {
     const txHashHex = tx.hash().toString('hex');
     if (this.txCache.has(txHashHex)) return;
-
     this.txCache.set(txHashHex, true);
+    this.emit('peertx', tx);
     console.log(`New tx: ${txHashHex} (from ${getPeerAddr(peer)})`);
   }
 
-  blocksCache = new LRUCache({ max: 100 });
   onNewBlock(block, peer) {
     const blockHashHex = block.hash().toString('hex');
     const blockNumber = devp2p._util.buffer2int(block.header.number);
     if (this.blocksCache.has(blockHashHex)) return;
-
     this.blocksCache.set(blockHashHex, true);
     console.log(
       `----------------------------------------------------------------------------------------------------------`
@@ -325,7 +280,6 @@ class bitcoreP2PEth extends EventEmitter {
       `----------------------------------------------------------------------------------------------------------`
     );
     this.emit('peerblock', peer, { block });
-    //for (let tx of block.transactions) onNewTx(tx, peer);
   }
 
   isValidTx(tx) {
@@ -347,7 +301,7 @@ class bitcoreP2PEth extends EventEmitter {
   }
 
   sendPoolMessage(message, messageBody) {
-    for (let [_, peer] of Object.entries(this.peers)) {
+    for (let peer of Object.values(this.peers)) {
       this.sendPeerMessage(peer, message, messageBody);
     }
   }
@@ -358,11 +312,31 @@ class bitcoreP2PEth extends EventEmitter {
   }
 
   getHeaders(startHash: string) {
-    this.sendPoolMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_HEADERS, [startHash, 2000, 0, 0]);
+    return new Promise(resolve => {
+      const _getHeaders = () => {
+        this.sendPoolMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_HEADERS, [startHash, 2000, 0, 0]);
+      };
+      const headersRetry = setInterval(_getHeaders, 1000);
+      this.once('headers', headers => {
+        clearInterval(headersRetry);
+        resolve(headers);
+      });
+      _getHeaders();
+    });
   }
 
   getBlock(hash: string) {
-    this.sendPoolMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_BODIES, [hash]);
+    return new Promise(resolve => {
+      const _getBlock = () => {
+        this.sendPoolMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_BODIES, [hash]);
+      };
+      const blockRetry = setInterval(_getBlock, 1000);
+      this.once(hash, block => {
+        clearInterval(blockRetry);
+        resolve(block);
+      });
+      _getBlock();
+    });
   }
 
   getBlocks(hashes: Array<string>) {
@@ -385,4 +359,4 @@ dpt.addPeer({ address: '127.0.0.1', udpPort: 30303, tcpPort: 30303 })
     })
   })
   .catch((err) => console.log(`error on connection to local node: ${err.stack || err}`))
-*/
+ */
