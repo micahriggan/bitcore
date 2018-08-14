@@ -6,7 +6,7 @@ import { ChainStateProvider } from '../../providers/chain-state';
 import { TransactionModel } from '../../models/transaction';
 import { Bitcoin } from '../../types/namespaces/Bitcoin';
 import { StateModel } from '../../models/state';
-const Chain = require('../chain');
+import { Chain } from '../../chain';
 const LRU = require('lru-cache');
 
 export class P2pService {

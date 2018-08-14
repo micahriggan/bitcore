@@ -1,5 +1,5 @@
 import { EventEmitter } from 'events';
-const devp2p = require('../src');
+const devp2p = require('ethereumjs-devp2p');
 const EthereumTx = require('ethereumjs-tx');
 const EthereumBlock = require('ethereumjs-block');
 const LRUCache = require('lru-cache');
@@ -64,10 +64,10 @@ export class BitcoreP2PEth extends EventEmitter {
 
   constructor() {
     super();
+    this.setupListeners();
   }
 
   connect() {
-    this.setupListeners();
     this.establishHeartbeat();
   }
 

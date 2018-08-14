@@ -4,12 +4,14 @@ import { Worker } from './services/worker';
 import { Api } from './services/api';
 import cluster = require('cluster');
 import parseArgv from './utils/parseArgv';
+import { EthP2pService } from "./services/p2p/eth-p2p";
 let args = parseArgv([], ['DEBUG']);
 
 const startServices = async () => {
   await Storage.start({});
   await Worker.start();
   P2pService.startConfiguredChains();
+  EthP2pService.startConfiguredChains();
 };
 
 const runMaster = async() => {

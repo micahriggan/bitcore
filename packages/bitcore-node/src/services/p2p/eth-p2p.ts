@@ -9,37 +9,8 @@ import { StateModel } from '../../models/state';
 import { BitcoreP2PEth } from './bitcore-p2p-eth';
 const LRU = require('lru-cache');
 
-type MESSAGE_CODES = {
-  // eth62
-  STATUS: 0x00;
-  NEW_BLOCK_HASHES: 0x01;
-  TX: 0x02;
-  GET_BLOCK_HEADERS: 0x03;
-  BLOCK_HEADERS: 0x04;
-  GET_BLOCK_BODIES: 0x05;
-  BLOCK_BODIES: 0x06;
-  NEW_BLOCK: 0x07;
-  // eth63
-  GET_NODE_DATA: 0x0d;
-  NODE_DATA: 0x0e;
-  GET_RECEIPTS: 0x0f;
-  RECEIPTS: 0x10;
-};
 
-export interface ETH {
-  constructor(version, peer, send);
-  eth62: { name: 'eth'; version: 62; length: 8; constructor: ETH };
-  eth63: { name: 'eth'; version: 63; length: 17; constructor: ETH };
-  MESSAGE_CODES: MESSAGE_CODES;
-  _handleMessage(code: number, data: Buffer);
-  _handleStatus();
-  getVersion(): number;
-  _getStatusString(status: Array<any>);
-  sendStatus(status: Array<any>): Array<any> | void;
-  sendStatus(status: Array<any>);
-  sendMessage(code: number, payload: any);
-  getMsgPrefix(msgCode: number): string;
-}
+
 
 export class EthP2pService {
   private chain: string;
