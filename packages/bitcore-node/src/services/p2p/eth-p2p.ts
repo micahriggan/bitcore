@@ -118,7 +118,6 @@ export class EthP2pService {
 
   async connect() {
     this.eth.connect();
-    setInterval(this.eth.connect.bind(this.eth), 5000);
     return new Promise<void>(resolve => {
       this.eth.once('peerready', () => resolve());
     });

@@ -10,7 +10,7 @@ const { randomBytes } = require('crypto');
 const rlp = require('rlp-encoding');
 
 const PRIVATE_KEY = randomBytes(32);
-const CHAIN_ID = 1;
+const CHAIN_ID = 4;
 
 const BOOTNODES = require('ethereum-common')
   .bootstrapNodes.filter(node => {
@@ -64,6 +64,17 @@ export class BitcoreP2PEth extends EventEmitter {
 
   constructor() {
     super();
+    // connect to local ethereum node (debug)
+    dpt.addPeer({ address: '127.0.0.1', udpPort: 30303, tcpPort: 30303 })
+      .then((peer) => {
+        return this.rlpx.connect({
+          id: peer.id,
+          address: peer.address,
+          port: peer.tcpPort
+        })
+      })
+      .catch((err) => console.log(`error on connection to local node: ${err.stack || err}`))
+
     this.setupListeners();
   }
 
@@ -77,6 +88,7 @@ export class BitcoreP2PEth extends EventEmitter {
     this.rlpx.on('peer:added', peer => {
       const addr = getPeerAddr(peer);
       this.peers[addr] = peer;
+      this.emit('peerready', peer);
       const eth = peer.getProtocols()[0];
       const requests = { headers: new Array<string>(), bodies: new Array<any>(), msgTypes: {} };
 
@@ -96,7 +108,6 @@ export class BitcoreP2PEth extends EventEmitter {
       let forkVerified = false;
       let forkDrop;
       eth.once('status', () => {
-        this.emit('peerready', peer);
         forkDrop = setTimeout(() => {
           peer.disconnect(devp2p.RLPx.DISCONNECT_REASONS.USELESS_PEER);
         }, ms('15s'));
@@ -348,15 +359,3 @@ export class BitcoreP2PEth extends EventEmitter {
 // rlpx.listen(30303, '0.0.0.0')
 // dpt.bind(30303, '0.0.0.0')
 
-// connect to local ethereum node (debug)
-/*
-dpt.addPeer({ address: '127.0.0.1', udpPort: 30303, tcpPort: 30303 })
-  .then((peer) => {
-    return rlpx.connect({
-      id: peer.id,
-      address: peer.address,
-      port: peer.tcpPort
-    })
-  })
-  .catch((err) => console.log(`error on connection to local node: ${err.stack || err}`))
- */
