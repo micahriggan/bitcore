@@ -3,14 +3,13 @@ import logger from '../../logger';
 import { EventEmitter } from 'events';
 import { BlockModel } from '../../models/block';
 import { ChainStateProvider } from '../../providers/chain-state';
-import { TransactionModel } from '../../models/transaction';
+/*
+ *import { TransactionModel } from '../../models/transaction';
+ */
 import { Bitcoin } from '../../types/namespaces/Bitcoin';
 import { StateModel } from '../../models/state';
 import { BitcoreP2PEth } from './bitcore-p2p-eth';
 const LRU = require('lru-cache');
-
-
-
 
 export class EthP2pService {
   private chain: string;
@@ -26,7 +25,7 @@ export class EthP2pService {
   constructor(params) {
     const { chain, network, chainConfig } = params;
     this.eth = new BitcoreP2PEth();
-    this.chain = chain;
+    this.chain = chain || 'ETH';
     this.network = network;
     this.chainConfig = chainConfig;
     this.events = new EventEmitter();
@@ -127,7 +126,7 @@ export class EthP2pService {
     for (let chain of Object.keys(config.chains)) {
       for (let network of Object.keys(config.chains[chain])) {
         const chainConfig = config.chains[chain][network];
-        if (chain !== 'ETH' && chainConfig.chainSource && chainConfig.chainSource !== 'p2p') {
+        if (chain !== 'ETH' || chainConfig.chainSource && chainConfig.chainSource !== 'p2p') {
           continue;
         }
         new EthP2pService({
@@ -171,18 +170,20 @@ export class EthP2pService {
     });
   }
 
-  async processTransaction(tx: Bitcoin.Transaction): Promise<any> {
-    const now = new Date();
-    TransactionModel.batchImport({
-      chain: this.chain,
-      network: this.network,
-      txs: [tx],
-      height: -1,
-      mempoolTime: now,
-      blockTime: now,
-      blockTimeNormalized: now,
-      initialSyncComplete: true
-    });
+  async processTransaction(_: Bitcoin.Transaction): Promise<any> {
+    /*
+     *const now = new Date();
+     *TransactionModel.batchImport({
+     *  chain: this.chain,
+     *  network: this.network,
+     *  txs: [tx],
+     *  height: -1,
+     *  mempoolTime: now,
+     *  blockTime: now,
+     *  blockTimeNormalized: now,
+     *  initialSyncComplete: true
+     *});
+     */
   }
 
   async sync() {
@@ -218,14 +219,17 @@ export class EthP2pService {
       logger.info(`Syncing ${headers.length} blocks for ${chain} ${network}`);
       for (const header of headers) {
         try {
-          const block = await this.getBlock(header.hash);
-          await this.processBlock(block);
+          const block = await this.getBlock(header.hash());
+          /*
+           *await this.processBlock(block);
+           */
           currentHeight++;
           if (Date.now() - lastLog > 100) {
             logger.info(`Sync `, {
               chain,
               network,
-              height: currentHeight
+              height: currentHeight,
+              block
             });
             lastLog = Date.now();
           }

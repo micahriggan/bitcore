@@ -59,7 +59,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }) {
     let mintOps = await this.getMintOps(params);
     logger.debug('Minting Coins', mintOps.length);
-   
+
     params.mintOps = mintOps || [];
     let spendOps = this.getSpendOps(params);
     logger.debug('Spending Coins', spendOps.length);

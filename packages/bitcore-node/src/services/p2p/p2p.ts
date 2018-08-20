@@ -147,7 +147,7 @@ export class P2pService {
     for (let chain of Object.keys(config.chains)) {
       for (let network of Object.keys(config.chains[chain])) {
         const chainConfig = config.chains[chain][network];
-        if (chainConfig.chainSource && chainConfig.chainSource !== 'p2p') {
+        if (chain === 'ETH' || chainConfig.chainSource && chainConfig.chainSource !== 'p2p') {
           continue;
         }
         new P2pService({
