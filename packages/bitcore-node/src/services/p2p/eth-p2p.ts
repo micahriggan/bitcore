@@ -6,9 +6,11 @@ import { ChainStateProvider } from '../../providers/chain-state';
 /*
  *import { TransactionModel } from '../../models/transaction';
  */
-import { Bitcoin } from '../../types/namespaces/Bitcoin';
 import { StateModel } from '../../models/state';
 import { BitcoreP2PEth } from './bitcore-p2p-eth';
+import { Adapters } from '../../adapters';
+import { Ethereum } from '../../types/namespaces/Ethereum';
+import { TransactionModel } from '../../models/transaction';
 const LRU = require('lru-cache');
 
 export class EthP2pService {
@@ -126,7 +128,7 @@ export class EthP2pService {
     for (let chain of Object.keys(config.chains)) {
       for (let network of Object.keys(config.chains[chain])) {
         const chainConfig = config.chains[chain][network];
-        if (chain !== 'ETH' || chainConfig.chainSource && chainConfig.chainSource !== 'p2p') {
+        if (chain !== 'ETH' || (chainConfig.chainSource && chainConfig.chainSource !== 'p2p')) {
           continue;
         }
         new EthP2pService({
@@ -147,43 +149,49 @@ export class EthP2pService {
   }
 
   async processBlock(block): Promise<any> {
-    return new Promise(async (resolve, reject) => {
-      try {
-        await BlockModel.addBlock({
-          chain: this.chain,
-          network: this.network,
-          forkHeight: this.chainConfig.forkHeight,
-          parentChain: this.chainConfig.parentChain,
-          initialSyncComplete: this.initialSyncComplete,
-          block
-        });
-        if (!this.syncing) {
-          logger.info(`Added block ${block.hash}`, {
-            chain: this.chain,
-            network: this.network
-          });
-        }
-        resolve();
-      } catch (err) {
-        reject(err);
-      }
+    const convertedBlock = Adapters.convertBlock<Ethereum.Block>({ chain: this.chain, network: this.network, block });
+    const convertedTransactions = block.transactions.map(t =>
+      Adapters.convertTx<Ethereum.Transaction>({
+        chain: this.chain,
+        network: this.network,
+        tx: t,
+        block: convertedBlock
+      })
+    );
+    await BlockModel.addBlock({
+      chain: this.chain,
+      network: this.network,
+      forkHeight: this.chainConfig.forkHeight,
+      parentChain: this.chainConfig.parentChain,
+      initialSyncComplete: this.initialSyncComplete,
+      block: convertedBlock,
+      transactions: convertedTransactions
     });
+    if (!this.syncing) {
+      logger.info(`Added block ${block.hash}`, {
+        chain: this.chain,
+        network: this.network
+      });
+    }
   }
 
-  async processTransaction(_: Bitcoin.Transaction): Promise<any> {
-    /*
-     *const now = new Date();
-     *TransactionModel.batchImport({
-     *  chain: this.chain,
-     *  network: this.network,
-     *  txs: [tx],
-     *  height: -1,
-     *  mempoolTime: now,
-     *  blockTime: now,
-     *  blockTimeNormalized: now,
-     *  initialSyncComplete: true
-     *});
-     */
+  async processTransaction(tx: Ethereum.Transaction): Promise<any> {
+    const convertedTx = Adapters.convertTx<Ethereum.Transaction>({
+      chain: this.chain,
+      network: this.network,
+      tx: tx
+    });
+    const now = new Date();
+    TransactionModel.batchImport({
+      chain: this.chain,
+      network: this.network,
+      txs: [convertedTx],
+      height: -1,
+      mempoolTime: now,
+      blockTime: now,
+      blockTimeNormalized: now,
+      initialSyncComplete: true
+    });
   }
 
   async sync() {

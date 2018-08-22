@@ -2,7 +2,7 @@ export type Bucket<T> = { bucket: any } & T;
 import { ITransaction } from '../models/transaction';
 import { IBlock } from '../models/block';
 import { BitcoinAdapter } from './bitcoin';
-import { EthereumAdapter } from "./ethereum";
+import { EthereumAdapter } from './ethereum';
 
 export type VerboseTransaction = Bucket<ITransaction> & {
   inputs: Bucket<{ mintTxid: string; mintIndex: number }>[];
@@ -20,17 +20,17 @@ const adapters: { [adapterName: string]: AdapterType<any, any> } = {
   ETH: new EthereumAdapter()
 };
 
-class AdapterProvider {
+class AdapterProvider implements AdapterType<any, any> {
   get(adapterName: string) {
     return adapters[adapterName];
   }
   register<B, T>(adapterName: string, adapter: AdapterType<B, T>) {
     adapters[adapterName] = adapter;
   }
-  convertBlock<B>(params: ConvertBlockParams<B>) {
+  convertBlock<B>(params: ConvertBlockParams<B>): Bucket<IBlock> {
     return this.get(params.chain).convertBlock(params);
   }
-  convertTx<T>(params: ConvertTxParams<T>) {
+  convertTx<T>(params: ConvertTxParams<T>): VerboseTransaction {
     return this.get(params.chain).convertTx(params);
   }
 }

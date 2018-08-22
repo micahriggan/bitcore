@@ -5,8 +5,9 @@ import { TransactionModel } from '../../../src/models/transaction';
 import { CoinModel } from '../../../src/models/coin';
 import { TEST_BLOCK } from '../../data/test-block';
 import logger from '../../../src/logger';
+import { BitcoinAdapter, IBitcoinTransaction } from '../../../src/adapters/bitcoin';
 
-describe('Block Model', function () {
+describe('Block Model', function() {
   beforeEach(async () => {
     await resetDatabase();
   });
@@ -53,7 +54,7 @@ describe('Block Model', function () {
         previousBlockHash: '2a883ff89c7d6e9302bb4a4634cd580319a4fd59d69e979b344972b0ba042b86',
         size: 264,
         bits: parseInt('207fffff', 16).toString(),
-        processed: true,
+        processed: true
       });
       await BlockModel.collection.insert({
         chain: 'BTC',
@@ -68,12 +69,22 @@ describe('Block Model', function () {
         previousBlockHash: '3279069d22ce5af68ef38332d5b40e79e1964b154d466e7fa233015a34c27312',
         size: 264,
         bits: parseInt('207fffff', 16).toString(),
-        processed: true,
+        processed: true
       });
 
-      await BlockModel.addBlock({ block: TEST_BLOCK, chain: 'BTC', network: 'regtest', initialSyncComplete: false });
+      const convertedBlock = new BitcoinAdapter().convertBlock({ chain: 'BTC', network: 'regtest', block: TEST_BLOCK });
+      await BlockModel.addBlock({
+        block: convertedBlock,
+        chain: 'BTC',
+        network: 'regtest',
+        initialSyncComplete: false,
+        transactions: []
+      });
 
-      const blocks = await BlockModel.collection.find({ chain: 'BTC', network: 'regtest' }).sort({ height: 1 }).toArray();
+      const blocks = await BlockModel.collection
+        .find({ chain: 'BTC', network: 'regtest' })
+        .sort({ height: 1 })
+        .toArray();
       expect(blocks.length).to.equal(5);
       const ownBlock = blocks[4];
       expect(ownBlock.chain).to.equal('BTC');
@@ -93,11 +104,13 @@ describe('Block Model', function () {
 
       logger.info(`new block was successfully added with hash`, ownBlock.hash);
 
-      const transaction = await TransactionModel.collection.find({
-        chain: 'BTC',
-        network: 'regtest',
-        blockHash: '64bfb3eda276ae4ae5b64d9e36c9c0b629bc767fb7ae66f9d55d2c5c8103a929'
-      }).toArray();
+      const transaction = await TransactionModel.collection
+        .find<IBitcoinTransaction>({
+          chain: 'BTC',
+          network: 'regtest',
+          blockHash: '64bfb3eda276ae4ae5b64d9e36c9c0b629bc767fb7ae66f9d55d2c5c8103a929'
+        })
+        .toArray();
       expect(transaction.length).to.equal(1);
       expect(transaction[0].chain).to.equal('BTC');
       expect(transaction[0].network).to.equal('regtest');
@@ -111,13 +124,11 @@ describe('Block Model', function () {
       expect(transaction[0].wallets.length).to.equal(0);
 
       logger.info(`tx: ${transaction[0].txid} was successfully stored in the TX model`);
-
     });
   });
 
   describe('handleReorg', () => {
-    it('should not reorg if the incoming block\'s prevHash matches the block hash of the current highest block', async () => {
-
+    it("should not reorg if the incoming block's prevHash matches the block hash of the current highest block", async () => {
       await BlockModel.collection.insert({
         chain: 'BTC',
         network: 'regtest',
@@ -158,18 +169,13 @@ describe('Block Model', function () {
         previousBlockHash: '2a883ff89c7d6e9302bb4a4634cd580319a4fd59d69e979b344972b0ba042b86',
         size: 264,
         bits: parseInt('207fffff', 16).toString(),
-        processed: true,
+        processed: true
       });
 
       await BlockModel.handleReorg({
         header: {
           prevHash: '3279069d22ce5af68ef38332d5b40e79e1964b154d466e7fa233015a34c27312',
-          hash: '12c719927ce18f9a61d7c5a7af08d3110cacfa43671aa700956c3c05ed38bdaa',
-          time: 1526326785,
-          version: '536870912',
-          merkleRoot: '8c29860888b915715878b21ce14707a17b43f6c51dfb62a1e736e35bc5d8093f',
-          bits: parseInt('207fffff', 16).toString(),
-          nonce: '3'
+          hash: '12c719927ce18f9a61d7c5a7af08d3110cacfa43671aa700956c3c05ed38bdaa'
         },
         chain: 'BTC',
         network: 'regtest'
@@ -177,19 +183,12 @@ describe('Block Model', function () {
 
       const result = await BlockModel.collection.find({ chain: 'BTC', network: 'regtest' }).toArray();
       expect(result.length).to.equal(3);
-
     });
     it('should not reorg if localTip height is zero', async () => {
-
       await BlockModel.handleReorg({
         header: {
           prevHash: '12c719927ce18f9a61d7c5a7af08d3110cacfa43671aa700956c3c05ed38bdaa',
-          hash: '4c6872bf45ecab2fb8b38c8b8f50fc4a8309c6171d28d479b8226afcb1a99920',
-          time: 1526326785,
-          version: '536870912',
-          merkleRoot: '8c29860888b915715878b21ce14707a17b43f6c51dfb62a1e736e35bc5d8093f',
-          bits: parseInt('207fffff', 16).toString(),
-          nonce: '3'
+          hash: '4c6872bf45ecab2fb8b38c8b8f50fc4a8309c6171d28d479b8226afcb1a99920'
         },
         chain: 'BTC',
         network: 'regtest'
@@ -197,7 +196,6 @@ describe('Block Model', function () {
 
       const result = await BlockModel.collection.find({ chain: 'BTC', network: 'regtest' }).toArray();
       expect(result.length).to.equal(0);
-
     });
     it('should successfully handle reorg', async () => {
       // setting the Block model
@@ -241,7 +239,7 @@ describe('Block Model', function () {
         previousBlockHash: '2a883ff89c7d6e9302bb4a4634cd580319a4fd59d69e979b344972b0ba042b86',
         size: 264,
         bits: parseInt('207fffff', 16).toString(),
-        processed: true,
+        processed: true
       });
 
       // setting TX model
@@ -316,72 +314,81 @@ describe('Block Model', function () {
       await BlockModel.handleReorg({
         header: {
           prevHash: '12c719927ce18f9a61d7c5a7af08d3110cacfa43671aa700956c3c05ed38bdaa',
-          hash: '4c6872bf45ecab2fb8b38c8b8f50fc4a8309c6171d28d479b8226afcb1a99920',
-          time: 1526326785,
-          version: '536870912',
-          merkleRoot: '8c29860888b915715878b21ce14707a17b43f6c51dfb62a1e736e35bc5d8093f',
-          bits: parseInt('207fffff', 16).toString(),
-          nonce: '3'
+          hash: '4c6872bf45ecab2fb8b38c8b8f50fc4a8309c6171d28d479b8226afcb1a99920'
         },
         chain: 'BTC',
         network: 'regtest'
       });
 
       // check for removed block after Reorg in db
-      const blocks = await BlockModel.collection.find({
-        chain: 'BTC',
-        network: 'regtest'
-      }).toArray();
+      const blocks = await BlockModel.collection
+        .find({
+          chain: 'BTC',
+          network: 'regtest'
+        })
+        .toArray();
       expect(blocks.length).to.equal(2);
 
-      const removedBlock = await BlockModel.collection.find({
-        chain: 'BTC',
-        network: 'regtest',
-        height: {
-          $gte: 7
-        }
-      }).toArray();
+      const removedBlock = await BlockModel.collection
+        .find({
+          chain: 'BTC',
+          network: 'regtest',
+          height: {
+            $gte: 7
+          }
+        })
+        .toArray();
       expect(removedBlock.length).to.equal(0);
 
       // check for removed tx after Reorg in db
-      const transaction = await TransactionModel.collection.find({
-        chain: 'BTC',
-        network: 'regtest'
-      }).toArray();
+      const transaction = await TransactionModel.collection
+        .find({
+          chain: 'BTC',
+          network: 'regtest'
+        })
+        .toArray();
       expect(transaction.length).to.equal(1);
 
-      const removedTransaction = await TransactionModel.collection.find({
-        chain: 'BTC',
-        network: 'regtest',
-        blockHeight: {
-          $gte: 7
-        }
-      }).toArray();
+      const removedTransaction = await TransactionModel.collection
+        .find({
+          chain: 'BTC',
+          network: 'regtest',
+          blockHeight: {
+            $gte: 7
+          }
+        })
+        .toArray();
       expect(removedTransaction.length).to.equal(0);
 
       // check for removed coin after Reorg in db
-      const coinModel = await CoinModel.collection.find({
-        chain: 'BTC',
-        network: 'regtest',
-      }).toArray();
+      const coinModel = await CoinModel.collection
+        .find({
+          chain: 'BTC',
+          network: 'regtest'
+        })
+        .toArray();
       expect(coinModel.length).to.equal(1);
 
-      const removedCoin = await CoinModel.collection.find({
-        chain: 'BTC',
-        network: 'regtest',
-        mintHeight: {
-          $gte: 7
-        }
-      }).toArray();
+      const removedCoin = await CoinModel.collection
+        .find({
+          chain: 'BTC',
+          network: 'regtest',
+          mintHeight: {
+            $gte: 7
+          }
+        })
+        .toArray();
       expect(removedCoin.length).to.equal(0);
 
       // check for unspent coins in the db
-      const unspentCoins = await CoinModel.collection.find({
-        chain: 'BTC',
-        network: 'regtest',
-        spentTxid: null,
-        spentHeight: -1
-      }).toArray();
+      const unspentCoins = await CoinModel.collection
+        .find({
+          chain: 'BTC',
+          network: 'regtest',
+          spentTxid: null,
+          spentHeight: -1
+        })
+        .toArray();
       expect(unspentCoins.length).equal(1);
       expect(unspentCoins[0].chain).to.equal('BTC');
       expect(unspentCoins[0].network).to.equal('regtest');
@@ -393,7 +400,6 @@ describe('Block Model', function () {
       expect(unspentCoins[0].address).to.equal('mkjB6LmjiNfJWgH4aP4v1GkFjRcQTfDSfj');
       expect(unspentCoins[0].spentTxid).to.equal(null);
       expect(unspentCoins[0].spentHeight).to.equal(-1);
-
     });
   });
 });

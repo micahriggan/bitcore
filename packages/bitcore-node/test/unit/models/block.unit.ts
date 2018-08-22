@@ -6,15 +6,18 @@ import * as sinon from 'sinon';
 import { TEST_BLOCK } from '../../data/test-block';
 import { Storage } from '../../../src/services/storage';
 import { mockStorage } from '../../helpers';
-import { mockCollection } from "../../helpers/index.js";
+import { mockCollection } from '../../helpers/index.js';
 import { ChainStateProvider } from '../../../src/providers/chain-state';
+import { BitcoinAdapter } from '../../../src/adapters/bitcoin';
 
 describe('Block Model', function() {
   describe('addBlock', () => {
+    const convertedBlock = new BitcoinAdapter().convertBlock({ chain: 'BTC', network: 'regtest', block: TEST_BLOCK });
     let addBlockParams = {
       chain: 'BTC',
       network: 'regtest',
-      block: TEST_BLOCK,
+      transactions: [],
+      block: convertedBlock,
       height: 1355,
       initialSyncComplete: false
     };
@@ -223,7 +226,7 @@ describe('Block Model', function() {
         hash: 'abcd',
         version: 1,
         merkleRoot: 'deff',
-        time: new Date,
+        time: new Date(),
         timeNormalized: new Date(),
         nonce: 1,
         previousBlockHash: 'aabb',

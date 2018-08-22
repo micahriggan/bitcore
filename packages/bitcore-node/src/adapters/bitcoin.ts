@@ -2,6 +2,14 @@ import { AdapterType, Bucket, ConvertTxParams, ConvertBlockParams } from '.';
 import { Bitcoin } from '../types/namespaces/Bitcoin';
 import { ITransaction } from '../models/transaction';
 import { Chain } from '../chain';
+import { IBlock } from "../models/block";
+
+export type IBitcoinTransaction = ITransaction & {
+  locktime: number;
+  coinbase: boolean;
+};
+
+export type IBitcoinBlock = IBlock & {};
 
 export class BitcoinAdapter implements AdapterType<Bitcoin.Block, Bitcoin.Transaction> {
   convertBlock(params: ConvertBlockParams<Bitcoin.Block>) {
