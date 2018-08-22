@@ -220,9 +220,7 @@ export class EthP2pService {
       for (const header of headers) {
         try {
           const block = await this.getBlock(header.hash());
-          /*
-           *await this.processBlock(block);
-           */
+          await this.processBlock(block);
           currentHeight++;
           if (Date.now() - lastLog > 100) {
             logger.info(`Sync `, {

@@ -2,10 +2,10 @@ import { CoinModel } from './coin';
 import { TransactionModel } from './transaction';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
-import { Bitcoin } from '../types/namespaces/Bitcoin';
 import { BaseModel } from './base';
 import logger from '../logger';
 import { ChainStateProvider } from '../providers/chain-state';
+import { Bucket, VerboseTransaction } from '../adapters';
 
 export type IBlock = {
   chain: string;
@@ -47,16 +47,21 @@ export class Block extends BaseModel<IBlock> {
   }
 
   async addBlock(params: {
-    block: any;
+    block: Bucket<IBlock>;
+    transactions: VerboseTransaction[];
     parentChain?: string;
     forkHeight?: number;
     initialSyncComplete: boolean;
     chain: string;
     network: string;
   }) {
-    const { block, chain, network, parentChain, forkHeight, initialSyncComplete } = params;
-    const header = block.header.toObject();
-    const blockTime = header.time * 1000;
+    const { block, transactions, chain, network, parentChain, forkHeight, initialSyncComplete } = params;
+    const header = {
+      prevHash: block.previousBlockHash,
+      hash: block.hash,
+      time: block.time
+    };
+    const blockTime = block.time.getTime() * 1000;
 
     const reorg = await this.handleReorg({ header, chain, network });
 
@@ -86,16 +91,17 @@ export class Block extends BaseModel<IBlock> {
           network,
           hash: block.hash,
           height,
-          version: header.version,
+          version: block.version,
           previousBlockHash: header.prevHash,
-          merkleRoot: header.merkleRoot,
+          merkleRoot: block.merkleRoot,
           time: new Date(blockTime),
           timeNormalized: new Date(blockTimeNormalized),
-          bits: header.bits,
-          nonce: header.nonce,
-          transactionCount: block.transactions.length,
-          size: block.toBuffer().length,
-          reward: block.transactions[0].outputAmount
+          bits: block.bits,
+          nonce: block.nonce,
+          transactionCount: transactions.length,
+          size: block.size,
+          reward: block.reward,
+          ...block.bucket
         }
       },
       { upsert: true }
@@ -110,7 +116,7 @@ export class Block extends BaseModel<IBlock> {
     }
 
     await TransactionModel.batchImport({
-      txs: block.transactions,
+      txs: transactions,
       blockHash: header.hash,
       blockTime: new Date(blockTime),
       blockTimeNormalized: new Date(blockTimeNormalized),
@@ -131,7 +137,11 @@ export class Block extends BaseModel<IBlock> {
     return coinbase;
   }
 
-  async handleReorg(params: { header?: Bitcoin.Block.HeaderObj; chain: string; network: string }): Promise<boolean> {
+  async handleReorg(params: {
+    header?: { hash: string; prevHash: string };
+    chain: string;
+    network: string;
+  }): Promise<boolean> {
     const { header, chain, network } = params;
     const localTip = await ChainStateProvider.getLocalTip(params);
     if (header && localTip && localTip.hash === header.prevHash) {

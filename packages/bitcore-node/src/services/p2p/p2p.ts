@@ -7,6 +7,7 @@ import { TransactionModel } from '../../models/transaction';
 import { Bitcoin } from '../../types/namespaces/Bitcoin';
 import { StateModel } from '../../models/state';
 import { Chain } from '../../chain';
+import { Adapters } from '../../adapters';
 const LRU = require('lru-cache');
 
 export class P2pService {
@@ -147,7 +148,7 @@ export class P2pService {
     for (let chain of Object.keys(config.chains)) {
       for (let network of Object.keys(config.chains[chain])) {
         const chainConfig = config.chains[chain][network];
-        if (chain === 'ETH' || chainConfig.chainSource && chainConfig.chainSource !== 'p2p') {
+        if (chain === 'ETH' || (chainConfig.chainSource && chainConfig.chainSource !== 'p2p')) {
           continue;
         }
         new P2pService({
@@ -178,8 +179,8 @@ export class P2pService {
     });
   }
 
-  public async getBlock(hash: string) {
-    return new Promise(resolve => {
+  public async getBlock(hash: string): Promise<Bitcoin.Block> {
+    return new Promise<Bitcoin.Block>(resolve => {
       logger.debug('Getting block, hash:', hash);
       const _getBlock = () => {
         this.pool.sendMessage(this.messages.GetData.forBlock(hash));
@@ -205,8 +206,12 @@ export class P2pService {
     return best;
   }
 
-  async processBlock(block): Promise<any> {
+  async processBlock(block: Bitcoin.Block) {
     return new Promise(async (resolve, reject) => {
+      const convertedBlock = Adapters.convertBlock<Bitcoin.Block>({ chain: this.chain, network: this.network, block });
+      const convertedTransactions = block.transactions.map(tx =>
+        Adapters.convertTx<Bitcoin.Transaction>({ chain: this.chain, network: this.network, block: convertedBlock, tx })
+      );
       try {
         await BlockModel.addBlock({
           chain: this.chain,
@@ -214,7 +219,8 @@ export class P2pService {
           forkHeight: this.chainConfig.forkHeight,
           parentChain: this.chainConfig.parentChain,
           initialSyncComplete: this.initialSyncComplete,
-          block
+          block: convertedBlock,
+          transactions: convertedTransactions
         });
         if (!this.syncing) {
           logger.info(`Added block ${block.hash}`, {
@@ -229,12 +235,13 @@ export class P2pService {
     });
   }
 
-  async processTransaction(tx: Bitcoin.Transaction): Promise<any> {
+  async processTransaction(transaction: Bitcoin.Transaction): Promise<any> {
     const now = new Date();
+    const convertedTx = Adapters.convertTx({ chain: this.chain, network: this.network, tx: transaction });
     TransactionModel.batchImport({
       chain: this.chain,
       network: this.network,
-      txs: [tx],
+      txs: [convertedTx],
       height: -1,
       mempoolTime: now,
       blockTime: now,
