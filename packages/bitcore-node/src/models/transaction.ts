@@ -99,7 +99,7 @@ export class Transaction extends BaseModel<ITransaction> {
     mintOps?: Array<any>;
   }) {
     let { blockHash, blockTime, blockTimeNormalized, chain, height, network, txs, initialSyncComplete } = params;
-    let txids = txs.map(tx => tx.blockHash);
+    let txids = txs.map(tx => tx.txid);
 
     type TaggedCoin = ICoin & { _id: string };
     let mintWallets;
@@ -183,7 +183,7 @@ export class Transaction extends BaseModel<ITransaction> {
         .toArray();
     }
     for (let tx of txs) {
-      let txid = tx.blockHash;
+      let txid = tx.txid;
       for (let [index, output] of tx.outputs.entries()) {
         let parentChainCoin = parentChainCoins.find(
           (parentChainCoin: ICoin) => parentChainCoin.mintTxid === txid && parentChainCoin.mintIndex === index

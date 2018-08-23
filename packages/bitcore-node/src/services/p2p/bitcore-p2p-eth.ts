@@ -1,4 +1,5 @@
 import { EventEmitter } from 'events';
+import { Ethereum } from '../../types/namespaces/Ethereum';
 const devp2p = require('ethereumjs-devp2p');
 const EthereumTx = require('ethereumjs-tx');
 const EthereumBlock = require('ethereumjs-block');
@@ -10,6 +11,7 @@ const { randomBytes } = require('crypto');
 
 const PRIVATE_KEY = randomBytes(32);
 const CHAIN_ID = 4;
+const requests = { headers: new Array<string>(), bodies: new Array<any>(), msgTypes: {} };
 
 /*
  *const BOOTNODES = require('ethereum-common')
@@ -96,7 +98,6 @@ export class BitcoreP2PEth extends EventEmitter {
       this.peers[addr] = peer;
       this.emit('peerready', peer);
       const eth = peer.getProtocols()[0];
-      const requests = { headers: new Array<string>(), bodies: new Array<any>(), msgTypes: {} };
 
       const clientId = peer.getHelloMessage().clientId;
       console.log(
@@ -151,7 +152,6 @@ export class BitcoreP2PEth extends EventEmitter {
           case devp2p.ETH.MESSAGE_CODES.BLOCK_HEADERS:
             console.log('MESSAGE:BLOCK_HEADERS');
             const blockHeaders = payload.map(header => new EthereumBlock.Header(header));
-            console.log('Block Headers', blockHeaders.length);
             this.emit('headers', blockHeaders);
             break;
 
@@ -173,7 +173,7 @@ export class BitcoreP2PEth extends EventEmitter {
               const isValid = await this.isValidBlock(block);
               if (isValid) {
                 isValidPayload = true;
-                this.emit(block.hash(), block);
+                this.emit(block.hash().toString('hex'), block);
                 this.onNewBlock(block, peer);
                 break;
               }
@@ -217,6 +217,9 @@ export class BitcoreP2PEth extends EventEmitter {
           case devp2p.ETH.MESSAGE_CODES.RECEIPTS:
             console.log('MESSAGE:RECEIPTS');
             break;
+
+          default:
+            console.log('MESSAGE:', code);
         }
       });
     });
@@ -275,6 +278,7 @@ export class BitcoreP2PEth extends EventEmitter {
     const txHashHex = tx.hash().toString('hex');
     if (this.txCache.has(txHashHex)) return;
     this.txCache.set(txHashHex, true);
+    tx.hash = tx.hash();
     this.emit('peertx', peer, { transaction: tx });
     /*
      *console.log(`New tx: ${txHashHex} (from ${getPeerAddr(peer)})`);
@@ -285,7 +289,7 @@ export class BitcoreP2PEth extends EventEmitter {
     const blockHashHex = block.hash().toString('hex');
     const blockNumber = devp2p._util.buffer2int(block.header.number);
     if (this.blocksCache.has(blockHashHex)) return;
-    this.blocksCache.set(blockHashHex, true);
+    this.blocksCache.set(blockHashHex, block);
     console.log(
       `----------------------------------------------------------------------------------------------------------`
     );
@@ -325,16 +329,14 @@ export class BitcoreP2PEth extends EventEmitter {
     eth.sendMessage(message, messageBody);
   }
 
-  getHeaders(_: string) {
+  getHeaders(bestHeight: number) {
     return new Promise(resolve => {
       const _getHeaders = () => {
-        const message = [0, 2000, 0, 0];
-        console.log('Getting headers ', message);
+        const message = [bestHeight, 2000, 0, 0];
         this.sendPoolMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_HEADERS, message);
       };
-      const headersRetry = setInterval(_getHeaders, 1000);
+      const headersRetry = setInterval(_getHeaders, 10000);
       this.once('headers', headers => {
-        console.log(headers);
         clearInterval(headersRetry);
         resolve(headers);
       });
@@ -342,14 +344,20 @@ export class BitcoreP2PEth extends EventEmitter {
     });
   }
 
-  getBlock(hash: string) {
+  getBlock(header: Ethereum.Header): Promise<Ethereum.Header> {
+    const hashStr = header.hash().toString('hex');
     return new Promise(resolve => {
       const _getBlock = () => {
-        console.log('Getting block ', hash);
-        this.sendPoolMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_BODIES, [hash]);
+        console.log('Getting block ', hashStr);
+        if (this.blocksCache.has(hashStr)) {
+          this.emit(hashStr, this.blocksCache.get(hashStr))
+        } else {
+          requests.bodies.push(header);
+          this.sendPoolMessage(devp2p.ETH.MESSAGE_CODES.GET_BLOCK_BODIES, [header.hash()]);
+        }
       };
-      const blockRetry = setInterval(_getBlock, 1000);
-      this.once(hash, block => {
+      const blockRetry = setInterval(_getBlock, 10000);
+      this.once(hashStr, block => {
         clearInterval(blockRetry);
         resolve(block);
       });

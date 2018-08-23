@@ -1,30 +1,32 @@
 import { AdapterType, ConvertBlockParams, ConvertTxParams, Bucket } from '.';
 import { Ethereum } from '../types/namespaces/Ethereum';
 import { ITransaction } from '../models/transaction';
+import { BN } from 'bn.js';
 export class EthereumAdapter implements AdapterType<Ethereum.Block, Ethereum.Transaction> {
   convertBlock(params: ConvertBlockParams<Ethereum.Block>) {
     const { chain, network, block } = params;
+    const {header} = block;
     return {
       chain,
       network,
-      height: block.number,
-      hash: block.mixHash,
+      height: new BN(header.number).toNumber(),
+      hash: block.header.hash().toString('hex'),
       version: 1,
-      merkleRoot: block.transactionsTrie,
-      time: new Date(block.timestamp),
-      timeNormalized: new Date(block.timestamp),
-      nonce: block.nonce,
-      previousBlockHash: block.parentHash,
+      merkleRoot: block.header.transactionsTrie.toString('hex'),
+      time: new Date(header.timestamp.readUInt32BE(0) * 1000),
+      timeNormalized: new Date(header.timestamp.readUInt32BE(0) * 1000),
+      nonce: Number(header.nonce.toString('hex')),
+      previousBlockHash: header.parentHash.toString('hex'),
       nextBlockHash: '',
-      transactionCount: 0,
+      transactionCount: block.transactions.length,
       size: block.raw.length,
       reward: 3,
       processed: false,
       bits: 0,
       bucket: {
-        gasLimit: block.gasLimit,
-        gasUsed: block.gasUsed,
-        stateRoot: block.stateRoot
+        gasLimit: Number(header.gasLimit),
+        gasUsed: Number(header.gasUsed),
+        stateRoot: header.stateRoot
       }
     };
   }
@@ -35,10 +37,10 @@ export class EthereumAdapter implements AdapterType<Ethereum.Block, Ethereum.Tra
       chain,
       network,
       wallets: [],
-      txid: tx.hash,
+      txid: tx.hash().toString('hex'),
       size: tx.data.length,
-      fee: -1,
-      bucket: { gasLimit: tx.gasLimit, gasPrice: tx.gasPrice, nonce: tx.nonce }
+      fee: tx.getUpfrontCost().toString(),
+      bucket: { gasLimit: tx.gasLimit.toString('hex'), gasPrice: tx.gasPrice.toString('hex'), nonce: tx.nonce.toString('hex') }
     };
     if (block) {
       convertedTx.blockHeight = block.height;
@@ -46,9 +48,10 @@ export class EthereumAdapter implements AdapterType<Ethereum.Block, Ethereum.Tra
       convertedTx.blockTime = block.time;
       convertedTx.blockTimeNormalized = block.timeNormalized;
     }
+
     const inputs = [
       {
-        mintTxid: tx.hash,
+        mintTxid: tx.hash().toString('hex'),
         mintIndex: 0,
         bucket: {}
       }
@@ -56,8 +59,8 @@ export class EthereumAdapter implements AdapterType<Ethereum.Block, Ethereum.Tra
 
     const outputs = [
       {
-        value: tx.value,
-        address: tx.to,
+        value: Number(tx.value.toString('hex')),
+        address: '0x' + tx.to.toString('hex'),
         bucket: {}
       }
     ];

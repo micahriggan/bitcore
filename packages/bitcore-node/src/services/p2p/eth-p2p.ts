@@ -5,6 +5,7 @@ import { BlockModel } from '../../models/block';
 import { ChainStateProvider } from '../../providers/chain-state';
 /*
  *import { TransactionModel } from '../../models/transaction';
+import { Header } from '../../types/namespaces/Bitcoin/index';
  */
 import { StateModel } from '../../models/state';
 import { BitcoreP2PEth } from './bitcore-p2p-eth';
@@ -60,7 +61,7 @@ export class EthP2pService {
         network: this.network,
         hash
       });
-      if (!this.invCache.get(hash)) {
+      if (!this.syncing && !this.invCache.get(hash)) {
         this.processTransaction(message.transaction);
         this.events.emit('transaction', message.transaction);
       }
@@ -78,7 +79,7 @@ export class EthP2pService {
         hash
       });
 
-      if (!this.invCache.get(hash)) {
+      if (!this.syncing && !this.invCache.get(hash)) {
         this.invCache.set(hash);
         this.events.emit(hash, message.block);
         if (!this.syncing) {
@@ -140,16 +141,19 @@ export class EthP2pService {
     }
   }
 
-  public async getHeaders(candidateHashes: string) {
-    return this.eth.getHeaders(candidateHashes);
+  public async getHeaders(bestHeight: number) {
+    return this.eth.getHeaders(bestHeight);
   }
 
-  public async getBlock(hash: string) {
-    return this.eth.getBlock(hash);
+  public async getBlock(header: Ethereum.Header) {
+    return this.eth.getBlock(header);
   }
 
   async processBlock(block): Promise<any> {
-    const convertedBlock = Adapters.convertBlock<Ethereum.Block>({ chain: this.chain, network: this.network, block });
+    const convertedBlock = Adapters.convertBlock<Ethereum.Header>({ chain: this.chain, network: this.network, block });
+    if(block.transactions.length > 1) {
+      console.log('Block has ', block.transactions.length, 'transactions');
+    }
     const convertedTransactions = block.transactions.map(t =>
       Adapters.convertTx<Ethereum.Transaction>({
         chain: this.chain,
@@ -213,21 +217,22 @@ export class EthP2pService {
       }
     }
 
-    const getHeaders = async () => {
-      const locators = await ChainStateProvider.getLocatorHashes({ chain, network });
-      return this.getHeaders(locators);
+    const getHeaders = async (tip: number) => {
+      return this.getHeaders(tip);
     };
 
     let headers;
     while (!headers || headers.length > 0) {
-      headers = await getHeaders();
       tip = await ChainStateProvider.getLocalTip({ chain, network });
       let currentHeight = tip ? tip.height : 0;
+      headers = await getHeaders(currentHeight);
       let lastLog = 0;
       logger.info(`Syncing ${headers.length} blocks for ${chain} ${network}`);
       for (const header of headers) {
         try {
-          const block = await this.getBlock(header.hash());
+          const hash = header.hash();
+          const hashStr = hash.toString('hex');
+          const block = await this.getBlock(header);
           await this.processBlock(block);
           currentHeight++;
           if (Date.now() - lastLog > 100) {
@@ -235,7 +240,7 @@ export class EthP2pService {
               chain,
               network,
               height: currentHeight,
-              block
+              hash: hashStr
             });
             lastLog = Date.now();
           }

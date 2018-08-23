@@ -1,32 +1,43 @@
+import { BN } from 'bn.js';
 export declare namespace Ethereum {
   export type Block = {
-    parentHash: string;
-    uncleHash: string;
-    coinbase: string;
-    stateRoot: string;
-    transactionsTrie: string;
-    receiptTrie: string;
-    bloom: string;
-    difficulty: string;
-    number: number;
-    gasLimit: number;
-    gasUsed: number;
-    timestamp: number;
-    extraData: string;
-    mixHash: string;
-    nonce: number;
+    header: Header;
+    transactions: Transaction[];
+    uncleHeaders: Header[];
+    raw: Buffer[];
+    txTrie: any;
+  };
+
+  export type Header = {
+    parentHash: Buffer;
+    uncleHash: Buffer;
+    coinbase: Buffer;
+    stateRoot: Buffer;
+    transactionsTrie: Buffer;
+    receiptTrie: Buffer;
+    bloom: Buffer;
+    difficulty: Buffer;
+    number: Buffer;
+    gasLimit: Buffer;
+    gasUsed: Buffer;
+    timestamp: Buffer;
+    extraData: Buffer;
+    mixHash: Buffer;
+    nonce: Buffer;
     raw: Array<Buffer>;
+    hash: () => Buffer;
   };
 
   export type Transaction = {
-    hash: string;
-    nonce: string;
-    gasPrice: string;
-    gasLimit: string;
-    to: string;
-    value: number;
-    data: string;
+    hash: () => Buffer;
+    nonce: Buffer;
+    gasPrice: Buffer;
+    gasLimit: Buffer;
+    to: Buffer;
+    value: Buffer;
+    data: Buffer;
     // EIP 155 chainId - mainnet: 1, ropsten: 3
     chainId: number;
+    getUpfrontCost: () => BN;
   };
 }

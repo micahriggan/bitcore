@@ -6,6 +6,7 @@ import { CoinModel } from '../../../src/models/coin';
 import { TEST_BLOCK } from '../../data/test-block';
 import logger from '../../../src/logger';
 import { BitcoinAdapter, IBitcoinTransaction } from '../../../src/adapters/bitcoin';
+import { TEST_TX } from '../../data/test-tx';
 
 describe('Block Model', function() {
   beforeEach(async () => {
@@ -22,10 +23,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: 'a2262b524615b6d2f409784ceff898fd46bdde6a584269788c41f26ac4b4919e',
         time: 1526326784,
-        nonce: '3',
+        nonce: 3,
         previousBlockHash: '64bfb3eda276ae4ae5b64d9e36c9c0b629bc767fb7ae66f9d55d2c5c8103a929',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
       await BlockModel.collection.insert({
@@ -36,10 +37,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: '8a351fa9fc3fcd38066b4bf61a8b5f71f08aa224d7a86165557e6da7ee13a826',
         time: 1526326785,
-        nonce: '0',
+        nonce: 0,
         previousBlockHash: '528f01c17829622ed6a4af51b3b3f6c062f304fa60e66499c9cbb8622c8407f7',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
       await BlockModel.collection.insert({
@@ -50,10 +51,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: '8c29860888b915715878b21ce14707a17b43f6c51dfb62a1e736e35bc5d8093f',
         time: new Date(1526326785),
-        nonce: '3',
+        nonce: 3,
         previousBlockHash: '2a883ff89c7d6e9302bb4a4634cd580319a4fd59d69e979b344972b0ba042b86',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
       await BlockModel.collection.insert({
@@ -65,20 +66,22 @@ describe('Block Model', function() {
         merkleRoot: 'be9a7cc27cceef8dee3cfff0754df46590b6934987fdf24bd9528ce8718978f0',
         time: new Date(1526326786),
         timeNormalized: new Date(1526326786),
-        nonce: '2',
+        nonce: 2,
         previousBlockHash: '3279069d22ce5af68ef38332d5b40e79e1964b154d466e7fa233015a34c27312',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
 
-      const convertedBlock = new BitcoinAdapter().convertBlock({ chain: 'BTC', network: 'regtest', block: TEST_BLOCK });
+      const adapter = new BitcoinAdapter();
+      const convertedBlock = adapter.convertBlock({ chain: 'BTC', network: 'regtest', block: TEST_BLOCK });
+      const convertedTx = adapter.convertTx({ chain: 'BTC', network: 'regtest', block: convertedBlock, tx: TEST_TX });
       await BlockModel.addBlock({
         block: convertedBlock,
         chain: 'BTC',
         network: 'regtest',
         initialSyncComplete: false,
-        transactions: []
+        transactions: [convertedTx]
       });
 
       const blocks = await BlockModel.collection
@@ -90,14 +93,14 @@ describe('Block Model', function() {
       expect(ownBlock.chain).to.equal('BTC');
       expect(ownBlock.hash).to.equal('64bfb3eda276ae4ae5b64d9e36c9c0b629bc767fb7ae66f9d55d2c5c8103a929');
       expect(ownBlock.network).to.equal('regtest');
-      expect(ownBlock.bits).to.equal('545259519');
+      expect(ownBlock.bits).to.equal(545259519);
       expect(ownBlock.height).to.equal(9);
       expect(ownBlock.merkleRoot).to.equal('08e23107e8449f02568d37d37aa76e840e55bbb5f100ed8ad257af303db88c08');
-      expect(ownBlock.nonce).to.equal('2');
+      expect(ownBlock.nonce).to.equal(2);
       expect(ownBlock.previousBlockHash).to.equal('3420349f63d96f257d56dd970f6b9079af9cf2784c267a13b1ac339d47031fe9');
       expect(ownBlock.reward).to.equal(0.09765625);
       expect(ownBlock.size).to.equal(264);
-      expect(ownBlock.version).to.equal('536870912');
+      expect(ownBlock.version).to.equal(536870912);
       // TODO: assertion for block times
       expect(ownBlock.transactionCount).to.equal(1);
       expect(ownBlock.processed).to.equal(true);
@@ -137,10 +140,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: 'a2262b524615b6d2f409784ceff898fd46bdde6a584269788c41f26ac4b4919e',
         time: new Date(1526326784),
-        nonce: '3',
+        nonce: 3,
         previousBlockHash: '64bfb3eda276ae4ae5b64d9e36c9c0b629bc767fb7ae66f9d55d2c5c8103a929',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
       await BlockModel.collection.insert({
@@ -151,10 +154,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: '8a351fa9fc3fcd38066b4bf61a8b5f71f08aa224d7a86165557e6da7ee13a826',
         time: new Date(1526326785),
-        nonce: '0',
+        nonce: 0,
         previousBlockHash: '528f01c17829622ed6a4af51b3b3f6c062f304fa60e66499c9cbb8622c8407f7',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
       await BlockModel.collection.insert({
@@ -165,10 +168,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: '8a351fa9fc3fcd38066b4bf61a8b5f71f08aa224d7a86165557e6da7ee13a826',
         time: new Date(1526326785),
-        nonce: '3',
+        nonce: 3,
         previousBlockHash: '2a883ff89c7d6e9302bb4a4634cd580319a4fd59d69e979b344972b0ba042b86',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
 
@@ -207,10 +210,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: 'a2262b524615b6d2f409784ceff898fd46bdde6a584269788c41f26ac4b4919e',
         time: 1526326784,
-        nonce: '3',
+        nonce: 3,
         previousBlockHash: '64bfb3eda276ae4ae5b64d9e36c9c0b629bc767fb7ae66f9d55d2c5c8103a929',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
       await BlockModel.collection.insert({
@@ -221,10 +224,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: '8a351fa9fc3fcd38066b4bf61a8b5f71f08aa224d7a86165557e6da7ee13a826',
         time: 1526326785,
-        nonce: '0',
+        nonce: 0,
         previousBlockHash: '528f01c17829622ed6a4af51b3b3f6c062f304fa60e66499c9cbb8622c8407f7',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
       await BlockModel.collection.insert({
@@ -235,10 +238,10 @@ describe('Block Model', function() {
         version: '536870912',
         merkleRoot: '8c29860888b915715878b21ce14707a17b43f6c51dfb62a1e736e35bc5d8093f',
         time: 1526326785,
-        nonce: '3',
+        nonce: 3,
         previousBlockHash: '2a883ff89c7d6e9302bb4a4634cd580319a4fd59d69e979b344972b0ba042b86',
         size: 264,
-        bits: parseInt('207fffff', 16).toString(),
+        bits: parseInt('207fffff', 16),
         processed: true
       });
 
