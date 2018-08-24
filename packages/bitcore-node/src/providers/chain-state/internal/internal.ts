@@ -74,7 +74,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
   streamBlocks(params: CSP.StreamBlocksParams) {
     const { stream } = params;
     const { query, options } = this.getBlocksQuery(params);
-    Storage.apiStreamingFind(BlockModel, query, options, stream);
+    return Storage.apiStreamingFind(BlockModel, query, options, stream);
   }
 
   async getBlocks(params: CSP.StreamBlocksParams) {
