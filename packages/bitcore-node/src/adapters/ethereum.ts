@@ -24,8 +24,8 @@ export class EthereumAdapter implements AdapterType<Ethereum.Block, Ethereum.Tra
       processed: false,
       bits: 0,
       bucket: {
-        gasLimit: Number(header.gasLimit),
-        gasUsed: Number(header.gasUsed),
+        gasLimit: Number.parseInt(header.gasLimit.toString('hex'), 16) || 0,
+        gasUsed: Number.parseInt(header.gasUsed.toString('hex'), 16) || 0,
         stateRoot: header.stateRoot
       }
     };
