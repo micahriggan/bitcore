@@ -59,7 +59,7 @@ export class EthereumAdapter implements AdapterType<Ethereum.Block, Ethereum.Tra
 
     const outputs = [
       {
-        value: Number(tx.value.toString('hex')),
+        value: Number.parseInt(tx.value.toString('hex'), 16) || 0,
         address: '0x' + tx.to.toString('hex'),
         bucket: {}
       }
