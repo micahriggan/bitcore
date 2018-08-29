@@ -1,7 +1,7 @@
 import { expect } from 'chai';
 import { IWalletAddress, WalletAddressModel } from "../../../src/models/walletAddress";
 import { IWallet } from "../../../src/models/wallet";
-import { ObjectID } from "bson";
+import { ObjectID } from "mongodb";
 import { MongoBound } from "../../../src/models/base";
 
 describe('WalletAddress Model', function () {
@@ -36,8 +36,9 @@ describe('WalletAddress Model', function () {
 
   describe('getUpdateCoinsObj', () => {
     it('should return the update coin object', async () => {
+      const id = new ObjectID();
       let wallet = {
-        _id: new ObjectID(),
+        _id: id ,
         name: 'Wallet1',
         singleAddress: true,
         pubKey: 'xpub661MyMwAqRbcFa63vSTa3vmRiVWbpLWhgUsyvjfMFP7ePR5osC1rtPUkgJrB94V1YEQathfWLm9U5zaZttYPDPWhASwJGUvYvPGtofqnTGN',
@@ -59,16 +60,17 @@ describe('WalletAddress Model', function () {
       expect(result.walletUpdates[0]).to.have.deep.property('updateOne').to.have.property('filter');
       expect(result.walletUpdates[0]).to.have.deep.property('updateOne').to.have.property('update');
       expect(result.walletUpdates[0]).to.have.deep.property('updateOne').to.have.property('upsert');
+      expect(result.walletUpdates[0]).to.have.deep.property('updateOne').to.have.property('filter');
       expect(result.walletUpdates[0]).to.deep.equal({
         updateOne: {
           filter: {
             // TODO: define wallet once wallet code is implemented
-            wallet: undefined,
+            wallet: id,
             address: '1'
           },
           update: {
             // TODO: define wallet once wallet code is implemented
-            wallet: undefined,
+            wallet: id,
             address: '1',
             chain: 'BTC',
             network: 'regtest'
@@ -84,12 +86,12 @@ describe('WalletAddress Model', function () {
         updateOne: {
           filter: {
             // TODO: define wallet once wallet code is implemented
-            wallet: undefined,
+            wallet: id,
             address: '2'
           },
           update: {
             // TODO: define wallet once wallet code is implemented
-            wallet: undefined,
+            wallet: id,
             address: '2',
             chain: 'BTC',
             network: 'regtest'
@@ -113,7 +115,7 @@ describe('WalletAddress Model', function () {
           update: {
             $addToSet: {
               // TODO: define wallet once wallet code is implemented
-              wallets: undefined,
+              wallets: id,
             }
           }
         }
@@ -134,7 +136,7 @@ describe('WalletAddress Model', function () {
           update: {
             $addToSet: {
               // TODO: define wallet once wallet code is implemented
-              wallets: undefined,
+              wallets: id,
             }
           }
         }

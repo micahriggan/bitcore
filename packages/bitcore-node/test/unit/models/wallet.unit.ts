@@ -3,7 +3,7 @@ import * as sinon from 'sinon';
 import { WalletModel, IWallet } from '../../../src/models/wallet';
 import { WalletAddressModel } from '../../../src/models/walletAddress';
 import { mockCollection } from "../../helpers/index.js";
-import { ObjectID } from "bson";
+import { ObjectID } from "mongodb";
 import { MongoBound } from "../../../src/models/base";
 
 describe('Wallet Model', function () {

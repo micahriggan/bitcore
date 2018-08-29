@@ -23,7 +23,7 @@ export async function blocks(
   }
 ) {
   const rpc = new AsyncRPC(creds.username, creds.password, creds.host, creds.port);
-  const tip = await ChainStateProvider.getLocalTip({ chain: info.chain, network: info.network });
+  const tip = (await ChainStateProvider.getLocalTip({ chain: info.chain, network: info.network })) || { height: 0 };
   const heights = new Array(tip.height).fill(false);
   const times = new Array(tip.height).fill(0);
   const normalizedTimes = new Array(tip.height).fill(0);

@@ -1,7 +1,7 @@
 import { CoinModel, ICoin } from './coin';
 import { WalletAddressModel } from './walletAddress';
 import { partition } from '../utils/partition';
-import { ObjectID } from 'bson';
+import { ObjectID } from 'mongodb';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel } from './base';
