@@ -11,7 +11,6 @@ import config from '../../src/config';
 import logger from '../../src/logger';
 import { ChainStateProvider } from '../../src/providers/chain-state';
 import { IBitcoinTransaction } from '../../src/adapters/bitcoin';
-
 const SATOSHI = 100000000.0;
 
 export async function blocks(
@@ -24,7 +23,7 @@ export async function blocks(
   }
 ) {
   const rpc = new AsyncRPC(creds.username, creds.password, creds.host, creds.port);
-  const tip = (await ChainStateProvider.getLocalTip({ chain: info.chain, network: info.network })) || { height: 0 };
+  const tip = await ChainStateProvider.getLocalTip({ chain: info.chain, network: info.network });
   const heights = new Array(tip.height).fill(false);
   const times = new Array(tip.height).fill(0);
   const normalizedTimes = new Array(tip.height).fill(0);
@@ -193,7 +192,7 @@ export async function transactions(
 
         // wallets
         expect(tx.wallets).to.include.members(Array.from(our.wallets));
-        if (our.wallets.size > 0) {
+        if (our.wallets.length > 0) {
           const wallets = await WalletAddressModel.collection
             .find({
               wallet: {

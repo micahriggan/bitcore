@@ -11,9 +11,9 @@ export type ICoin = {
   mintHeight: number;
   coinbase: boolean;
   value: number;
-  address?: string;
+  address: string;
   script: Buffer;
-  wallets: Set<ObjectID>;
+  wallets: Array<ObjectID>;
   spentTxid: string;
   spentHeight: number;
 };
