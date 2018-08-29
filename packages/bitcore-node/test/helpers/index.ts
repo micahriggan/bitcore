@@ -28,6 +28,7 @@ export function mockCollection(toReturn, collectionMethods = {}) {
       remove: sinon.stub().resolves(),
       limit: sinon.stub().returnsThis(),
       toArray: sinon.stub().resolves([toReturn]),
+      bulkWrite: sinon.stub().resolves({result: toReturn}),
       findOne: sinon.stub().resolves(toReturn),
       update: sinon.stub().resolves({ result: toReturn }),
       updateOne: sinon.stub().resolves(toReturn)
