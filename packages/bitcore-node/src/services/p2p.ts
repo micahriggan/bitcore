@@ -1,9 +1,9 @@
 import config from '../config';
 import logger from '../logger';
 import { EventEmitter } from 'events';
-import { BlockModel, IBlock } from '../models/block';
+import { BlockModel, IBlock, BlockOp } from '../models/block';
 import { ChainStateProvider } from '../providers/chain-state';
-import { TransactionModel } from '../models/transaction';
+import { TransactionModel, TxOp, CoinSpendOp, CoinMintOp } from '../models/transaction';
 import { Bitcoin } from '../types/namespaces/Bitcoin';
 import { StateModel } from '../models/state';
 import { Adapters, VerboseTransaction, Bucket } from '../adapters';
@@ -319,10 +319,10 @@ export class P2pService {
     };
 
     let headers;
-    let blockBatch = new Array<any>();
-    let mintBatch = new Array<any>();
-    let spendBatch = new Array<any>();
-    let txBatch = new Array<any>();
+    let blockBatch = new Array<BlockOp>();
+    let mintBatch = new Array<CoinMintOp>();
+    let spendBatch = new Array<CoinSpendOp>();
+    let txBatch = new Array<TxOp>();
     let prevBlock: IBlock | null = null;
     while (!headers || headers.length > 0) {
       headers = await getHeaders();
@@ -370,10 +370,10 @@ export class P2pService {
               await prevPromise;
               prevPromise = BlockModel.processBlockOps(blockBatch);
             }
-            blockBatch = new Array<any>();
-            mintBatch = new Array<any>();
-            spendBatch = new Array<any>();
-            txBatch = new Array<any>();
+            blockBatch = new Array<BlockOp>();
+            mintBatch = new Array<CoinMintOp>();
+            spendBatch = new Array<CoinSpendOp>();
+            txBatch = new Array<TxOp>();
           }
 
           currentHeight++;
@@ -392,10 +392,10 @@ export class P2pService {
         });
         if (prevPromise) await prevPromise;
         await BlockModel.processBlockOps(blockBatch);
-        blockBatch = new Array<any>();
-        mintBatch = new Array<any>();
-        spendBatch = new Array<any>();
-        txBatch = new Array<any>();
+        blockBatch = new Array<BlockOp>();
+        mintBatch = new Array<CoinMintOp>();
+        spendBatch = new Array<CoinSpendOp>();
+        txBatch = new Array<TxOp>();
       }
     }
     logger.info(`${chain}:${network} up to date.`);

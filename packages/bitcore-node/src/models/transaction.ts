@@ -34,9 +34,9 @@ type BatchImportParams = {
   chain: string;
   network: string;
   initialSyncComplete: boolean;
-  mintOps?: Array<any>;
-  spendOps?: Array<any>;
-  txOps?: Array<any>;
+  mintOps?: Array<CoinMintOp>;
+  spendOps?: Array<CoinSpendOp>;
+  txOps?: Array<TxOp>;
 };
 type BatchImportQueryBuilderParams = BatchImportParams & {
   parentChainCoins: Array<ICoin>;
@@ -63,6 +63,17 @@ export type CoinSpendOp = {
       network: string;
     };
     update: { $set: { spentTxid: string; spentHeight: number } };
+  };
+};
+
+export type TxOp = {
+  updateOne: {
+    filter: { txid: string; chain: string; network: string };
+    update: {
+      $set: Partial<ITransaction>;
+    };
+    upsert: boolean;
+    forceServerObjectId: boolean;
   };
 };
 
@@ -94,7 +105,7 @@ export class Transaction extends BaseModel<ITransaction> {
     //const allSpenOps = spendOps.concat(newSpends);
     logger.debug('Spend batch size', spendOps.length);
 
-    let newTxOps = new Array<any>();
+    let newTxOps = new Array<TxOp>();
     if (mintOps) {
       newTxOps = await this.addTransactions(params);
       //const allTxOps = txOps.concat(newTxOps);
