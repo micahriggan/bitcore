@@ -3,13 +3,11 @@ import { WalletAddressModel, IWalletAddress } from './walletAddress';
 import { partition } from '../utils/partition';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
-import { Bitcoin } from '../types/namespaces/Bitcoin';
 import { BaseModel } from './base';
 import logger from '../logger';
 import config from '../config';
 import { ObjectId } from 'mongodb';
-
-const Chain = require('../chain');
+import { VerboseTransaction } from '../adapters';
 
 export type ITransaction = {
   txid: string;
@@ -19,15 +17,13 @@ export type ITransaction = {
   blockHash?: string;
   blockTime?: Date;
   blockTimeNormalized?: Date;
-  coinbase: boolean;
   fee: number;
   size: number;
-  locktime: number;
   wallets: ObjectId[];
 };
 
 type BatchImportParams = {
-  txs: Array<Bitcoin.Transaction>;
+  txs: Array<VerboseTransaction>;
   height: number;
   mempoolTime?: Date;
   blockTime?: Date;
@@ -106,7 +102,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   async batchImport(params: {
-    txs: Array<Bitcoin.Transaction>;
+    txs: Array<VerboseTransaction>;
     height: number;
     mempoolTime?: Date;
     blockTime?: Date;
@@ -164,7 +160,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   async addTransactions(params: {
-    txs: Array<Bitcoin.Transaction>;
+    txs: Array<VerboseTransaction>;
     height: number;
     blockTime?: Date;
     blockHash?: string;
@@ -177,7 +173,7 @@ export class Transaction extends BaseModel<ITransaction> {
     mintOps?: Array<any>;
   }) {
     let { chain, network, height, blockHash, blockTime, blockTimeNormalized, txs, initialSyncComplete } = params;
-    let txids = txs.map(tx => tx._hash);
+    let txids = txs.map(tx => tx.txid);
 
     type TaggedCoin = {
       _id: string;
@@ -228,10 +224,9 @@ export class Transaction extends BaseModel<ITransaction> {
               blockHash,
               blockTime,
               blockTimeNormalized,
-              coinbase: tx.isCoinbase(),
-              size: tx.toBuffer().length,
-              locktime: tx.nLockTime,
-              wallets
+              size: tx.size,
+              wallets,
+              ...tx.bucket
             }
           },
           upsert: true,
@@ -247,9 +242,7 @@ export class Transaction extends BaseModel<ITransaction> {
     let mintOps = new Array<CoinMintOp>();
 
     for (let tx of txs) {
-      tx._hash = tx.hash;
-      let txid = tx._hash;
-      let isCoinbase = tx.isCoinbase();
+      let txid = tx.txid;
       for (let [index, output] of tx.outputs.entries()) {
         let parentChainCoin = parentChainCoins.find(
           (parentChainCoin: ICoin) => parentChainCoin.mintTxid === txid && parentChainCoin.mintIndex === index
@@ -257,16 +250,6 @@ export class Transaction extends BaseModel<ITransaction> {
         if (parentChainCoin) {
           continue;
         }
-        let address = '';
-        let scriptBuffer = output.script && output.script.toBuffer();
-        if (scriptBuffer) {
-          address = output.script.toAddress(network).toString(true);
-          if (address === 'false' && output.script.classify() === 'Pay to public key') {
-            let hash = Chain[chain].lib.crypto.Hash.sha256ripemd160(output.script.chunks[0].buf);
-            address = Chain[chain].lib.Address(hash, network).toString(true);
-          }
-        }
-
         mintOps.push({
           updateOne: {
             filter: { mintTxid: txid, mintIndex: index, spentHeight: { $lt: 0 }, chain, network },
@@ -275,12 +258,11 @@ export class Transaction extends BaseModel<ITransaction> {
                 chain,
                 network,
                 mintHeight: height,
-                coinbase: isCoinbase,
-                value: output.satoshis,
-                address,
-                script: scriptBuffer,
+                value: output.value,
+                address: output.address,
                 spentHeight: -2,
-                wallets: new Array<ObjectId>()
+                wallets: new Array<ObjectId>(),
+                ...output.bucket
               }
             },
             upsert: true,
@@ -307,7 +289,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   getSpendOps(params: {
-    txs: Array<Bitcoin.Transaction>;
+    txs: Array<VerboseTransaction>;
     height: number;
     parentChain?: string;
     mempoolTime?: Date;
@@ -329,13 +311,12 @@ export class Transaction extends BaseModel<ITransaction> {
     }
     let sameBlockSpends = 0;
     for (let tx of txs) {
-      if (tx.isCoinbase()) {
+      if (tx.bucket.coinbase) {
         continue;
       }
-      let txid = tx._hash;
+      let txid = tx.txid;
       for (let input of tx.inputs) {
-        let inputObj = input.toObject();
-        let sameBlockSpend = mintMap[inputObj.prevTxId] && mintMap[inputObj.prevTxId][inputObj.outputIndex];
+        let sameBlockSpend = mintMap[input.mintTxid] && mintMap[input.mintTxid][input.mintIndex];
         if (sameBlockSpend) {
           sameBlockSpends++;
           sameBlockSpend.updateOne.update.$set.spentHeight = height;
@@ -348,8 +329,8 @@ export class Transaction extends BaseModel<ITransaction> {
         const updateQuery: any = {
           updateOne: {
             filter: {
-              mintTxid: inputObj.prevTxId,
-              mintIndex: inputObj.outputIndex,
+              mintTxid: input.mintTxid,
+              mintIndex: input.mintIndex,
               spentHeight: { $lt: 0 },
               chain,
               network
@@ -373,18 +354,11 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   _apiTransform(tx: ITransaction, options: TransformOptions) {
-    let transform = {
-      txid: tx.txid,
-      network: tx.network,
-      blockHeight: tx.blockHeight,
-      blockHash: tx.blockHash,
-      blockTime: tx.blockTime,
-      blockTimeNormalized: tx.blockTimeNormalized,
-      coinbase: tx.coinbase,
-      locktime: tx.locktime,
-      size: tx.size,
-      fee: tx.fee
-    };
+    let keys = Object.keys(tx).filter(k => k != '_id');
+    let transform = {};
+    for (let key of keys) {
+      transform[key] = tx[key];
+    }
     if (options && options.object) {
       return transform;
     }

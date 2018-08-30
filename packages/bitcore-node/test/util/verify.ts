@@ -2,7 +2,7 @@
 import { BlockModel, IBlock } from '../../src/models/block';
 import { AsyncRPC } from '../../src/rpc';
 import { expect } from 'chai';
-import { TransactionModel, ITransaction } from '../../src/models/transaction';
+import { TransactionModel } from '../../src/models/transaction';
 import { CoinModel } from '../../src/models/coin';
 import { ChainNetwork } from '../../src/types/ChainNetwork';
 import { WalletAddressModel } from '../../src/models/walletAddress';
@@ -10,6 +10,7 @@ import { Storage } from '../../src/services/storage';
 import config from '../../src/config';
 import logger from '../../src/logger';
 import { ChainStateProvider } from '../../src/providers/chain-state';
+import { IBitcoinTransaction } from '../../src/adapters/bitcoin';
 
 const SATOSHI = 100000000.0;
 
@@ -77,7 +78,7 @@ export async function blocks(
 
       // Check block only has all `truth`'s transactions
       const ours = await TransactionModel.collection
-        .find({
+        .find<IBitcoinTransaction>({
           chain: info.chain,
           network: info.network,
           txid: {
@@ -154,13 +155,13 @@ export async function transactions(
 ) {
   const rpc = new AsyncRPC(creds.username, creds.password, creds.host, creds.port);
 
-  const txcursor = TransactionModel.collection.find({
+  const txcursor = TransactionModel.collection.find<IBitcoinTransaction>({
     chain: info.chain,
     network: info.network
   });
 
   while (true) {
-    const tx: ITransaction | null = await txcursor.next();
+    const tx: IBitcoinTransaction | null = await txcursor.next();
     if (!tx) {
       break;
     }

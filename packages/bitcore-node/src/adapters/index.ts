@@ -2,7 +2,6 @@ export type Bucket<T> = { bucket: any } & T;
 import { ITransaction } from '../models/transaction';
 import { IBlock } from '../models/block';
 import { BitcoinAdapter } from './bitcoin';
-import { EthereumAdapter } from './ethereum';
 
 export type VerboseTransaction = Bucket<ITransaction> & {
   inputs: Bucket<{ mintTxid: string; mintIndex: number }>[];
@@ -17,7 +16,6 @@ export interface AdapterType<B, T> {
 const adapters: { [adapterName: string]: AdapterType<any, any> } = {
   BTC: new BitcoinAdapter(),
   BCH: new BitcoinAdapter(),
-  ETH: new EthereumAdapter()
 };
 
 class AdapterProvider implements AdapterType<any, any> {

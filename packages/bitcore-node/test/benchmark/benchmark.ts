@@ -6,14 +6,16 @@ import config from '../../src/config';
 import { Storage } from '../../src/services/storage';
 import { BlockModel } from '../../src/models/block';
 import { BitcoinBlockType } from '../../src/types/namespaces/Bitcoin/Block';
-import { resetDatabase } from "../helpers/index.js";
+import { resetDatabase } from '../helpers/index.js';
+import { Adapters } from '../../src/adapters';
+import { Bitcoin } from '../../src/types/namespaces/Bitcoin';
 
-function * generateBlocks(blockCount: number, blockSizeMb: number) {
+function* generateBlocks(blockCount: number, blockSizeMb: number) {
   let prevBlock: BitcoinBlockType | undefined = undefined;
   for (let i = 0; i < blockCount; i++) {
-      let tempBlock = generateBlock(blockSizeMb, prevBlock);
-      yield tempBlock;
-      prevBlock = tempBlock;
+    let tempBlock = generateBlock(blockSizeMb, prevBlock);
+    yield tempBlock;
+    prevBlock = tempBlock;
   }
 }
 
@@ -53,14 +55,14 @@ function generateBlock(blockSizeMb: number, previousBlock?: BitcoinBlockType): B
   let transactions = new Array<any>();
   if (previousBlock) {
     for (let transaction of previousBlock.transactions) {
-      const utxos = transaction.outputs.map((output) => {
+      const utxos = transaction.outputs.map(output => {
         return new UnspentOutput({
           txid: transaction.hash,
           vout: 0,
           address: output.script.toAddress('mainnet'),
           scriptPubKey: output.script.toBuffer().toString('hex'),
           amount: Number(txAmount)
-        })
+        });
       });
       let newTx = new Transaction().from(utxos);
       for (let _ of newTx.inputs) {
@@ -107,17 +109,31 @@ async function benchmark(blockCount: number, blockSizeMb: number) {
   const startTime = new Date();
   for (let block of generateBlocks(blockCount, blockSizeMb)) {
     console.log('Adding block', block.hash);
-    await BlockModel.addBlock({ block, chain: 'BENCH', network: 'MARK', initialSyncComplete: false });
+    const convertedBlock = Adapters.convertBlock<Bitcoin.Block>({ chain: 'BTC', network: 'testnet', block });
+    await BlockModel.addBlock({
+      block: convertedBlock,
+      chain: 'BENCH',
+      network: 'MARK',
+      initialSyncComplete: false,
+      transactions: []
+    });
+    await BlockModel.addBlock({
+      block: convertedBlock,
+      transactions: [],
+      chain: 'BENCH',
+      network: 'MARK',
+      initialSyncComplete: false
+    });
   }
   const endTime = new Date();
   const time = endTime.getTime() - startTime.getTime();
-  const seconds = time/1000;
+  const seconds = time / 1000;
   console.log(`Benchmark for ${blockCount} (${blockSizeMb} MB) blocks completed after ${seconds} s`);
-  console.log(`${blockSizeMb * blockCount / seconds} MB/s`);
-  console.log(`${seconds / blockCount } Seconds/Block`);
+  console.log(`${(blockSizeMb * blockCount) / seconds} MB/s`);
+  console.log(`${seconds / blockCount} Seconds/Block`);
 }
 
 startBenchmarkDatabase()
-.then(() => benchmark(160, 1))
-.then(() => benchmark(5, 32))
-.then(() => process.exit());
+  .then(() => benchmark(160, 1))
+  .then(() => benchmark(5, 32))
+  .then(() => process.exit());
