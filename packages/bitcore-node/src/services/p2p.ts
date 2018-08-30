@@ -335,6 +335,8 @@ export class P2pService {
         try {
           const block = await this.getBlock(header.hash);
           const { convertedBlock, convertedTransactions } = this.getConvertedBlock(block);
+
+          // Get back a group of mongo operations for this block
           const blockUpdates = await this.getBlockOperations(
             convertedBlock,
             convertedTransactions,
@@ -343,6 +345,8 @@ export class P2pService {
             txBatch,
             prevBlock
           );
+
+          // keep a running batch to help with reducing spends within a batch
           blockBatch = blockBatch.concat(blockUpdates);
           mintBatch = mintBatch.concat(blockUpdates.mintOps);
           spendBatch = spendBatch.concat(blockUpdates.spendOps);
@@ -358,7 +362,7 @@ export class P2pService {
             lastLog = Date.now();
           }
 
-          if (mintBatch.length > 25000) {
+          if (mintBatch.length > 100000) {
             logger.info(`Writing ${blockBatch.length} blocks `, {
               chain,
               network,
@@ -384,7 +388,7 @@ export class P2pService {
         }
       }
       if (mintBatch.length > 0) {
-        // clear out the remaining at the end of sync
+        // clear out the remaining operations before trying to get headers
         logger.info(`Writing ${blockBatch.length} blocks `, {
           chain,
           network,
