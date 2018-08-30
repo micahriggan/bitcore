@@ -53,6 +53,19 @@ export type CoinMintOp = {
   };
 };
 
+export type CoinSpendOp = {
+  updateOne: {
+    filter: {
+      mintTxid: string;
+      mintIndex: number;
+      spentHeight: { $lt: 0 };
+      chain: string;
+      network: string;
+    };
+    update: { $set: { spentTxid: string; spentHeight: number } };
+  };
+};
+
 @LoggifyClass
 export class Transaction extends BaseModel<ITransaction> {
   constructor() {

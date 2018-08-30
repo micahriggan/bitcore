@@ -1,5 +1,5 @@
 import { CoinModel, ICoin } from './coin';
-import { TransactionModel } from './transaction';
+import { TransactionModel, CoinMintOp } from './transaction';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel } from './base';
@@ -28,7 +28,7 @@ export type IBlock = {
 
 export type BlockOp = {
   blockOp: { $set: Partial<IBlock> };
-  mintOps: Array<any>;
+  mintOps: Array<CoinMintOp>;
   spendOps: Array<any>;
   txOps: Array<any>;
   previousBlock: {
