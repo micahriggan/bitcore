@@ -8,9 +8,10 @@ import { Storage } from '../../../src/services/storage';
 import { mockStorage } from '../../helpers';
 import { mockCollection } from '../../helpers/index.js';
 import { ChainStateProvider } from '../../../src/providers/chain-state';
-import { Adapters } from '../../../src/adapters';
+import { Adapters, Bucket } from '../../../src/adapters';
 import { Bitcoin } from '../../../src/types/namespaces/Bitcoin';
 import { TEST_TX_1 } from '../../data/test-tx';
+import { MongoBound } from '../../../src/models/base';
 
 describe('Block Model', function() {
   describe('addBlock', () => {
@@ -321,5 +322,41 @@ describe('Block Model', function() {
 
     expect(blockOperation.mintOps[0].updateOne.update.$set.spentTxid).to.be.eq(TEST_TX_1.hash);
     expect(blockOperation.mintOps[0].updateOne.update.$set.spentHeight).to.be.eq(1);
+  });
+
+  it('should be able to handle intra batch spends', async () => {
+    const convertedBlock = Adapters.convertBlock({ chain: 'BTC', network: 'mainnet', block: TEST_BLOCK});
+    const convertedTransactions = TEST_BLOCK.transactions.map(t =>
+      Adapters.convertTx({ chain: 'BTC', network: 'mainnet', tx: t, block: convertedBlock })
+    );
+    mockStorage({});
+    const blockOperation = await BlockModel.getBlockOp({
+      block: convertedBlock,
+      transactions: convertedTransactions,
+      initialSyncComplete: false,
+      chain: 'BTC',
+      network: 'mainnet'
+    });
+
+    const intraBatchSpendBlock = Object.assign({}, TEST_BLOCK);
+    intraBatchSpendBlock.transactions.push(TEST_TX_1);
+    const convertedBlock2 = Adapters.convertBlock({ chain: 'BTC', network: 'mainnet', block: intraBatchSpendBlock});
+    const convertedTransactions2 = intraBatchSpendBlock.transactions.map(t =>
+      Adapters.convertTx({ chain: 'BTC', network: 'mainnet', tx: t, block: convertedBlock })
+    );
+
+    const blockOperation2 = await BlockModel.getBlockOp({
+      block: convertedBlock2,
+      transactions: convertedTransactions2,
+      initialSyncComplete: false,
+      mintOps: blockOperation.mintOps,
+      previousBlock: convertedBlock as Bucket<MongoBound<IBlock>>,
+      chain: 'BTC',
+      network: 'mainnet'
+    });
+
+    expect(blockOperation.mintOps[0].updateOne.update.$set.spentTxid).to.be.eq(TEST_TX_1.hash);
+    expect(blockOperation.mintOps[0].updateOne.update.$set.spentHeight).to.be.eq(1);
+    expect(blockOperation2.blockOp.$set.height).to.be.eq(2);
   });
 });
