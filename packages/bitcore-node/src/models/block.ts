@@ -1,8 +1,8 @@
 import { CoinModel, ICoin } from './coin';
-import { TransactionModel, CoinMintOp } from './transaction';
+import { TransactionModel, CoinMintOp, CoinSpendOp, TxOp } from './transaction';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
-import { BaseModel } from './base';
+import { BaseModel, MongoBound } from './base';
 import logger from '../logger';
 import { ChainStateProvider } from '../providers/chain-state';
 import { Bucket, VerboseTransaction } from '../adapters';
@@ -29,8 +29,8 @@ export type IBlock = {
 export type BlockOp = {
   blockOp: { $set: Partial<IBlock> };
   mintOps: Array<CoinMintOp>;
-  spendOps: Array<any>;
-  txOps: Array<any>;
+  spendOps: Array<CoinSpendOp>;
+  txOps: Array<TxOp>;
   previousBlock: {
     updateOne: { chain: string; network: string; hash: string };
     $set: { nextBlockHash: string };
@@ -65,10 +65,10 @@ export class Block extends BaseModel<IBlock> {
     initialSyncComplete: boolean;
     chain: string;
     network: string;
-    mintOps?: Array<any>;
-    spendOps?: Array<any>;
-    txOps?: Array<any>;
-    previousBlock?: any;
+    mintOps?: Array<CoinMintOp>;
+    spendOps?: Array<CoinSpendOp>;
+    txOps?: Array<TxOp>;
+    previousBlock?: MongoBound<IBlock> | null;
   }): Promise<BlockOp> {
     const { block, transactions, chain, network, initialSyncComplete, forkHeight, parentChain } = params;
     let { previousBlock } = params;
@@ -86,7 +86,9 @@ export class Block extends BaseModel<IBlock> {
       }
     })();
 
-    const height = (previousBlock && previousBlock.height + 1) || 1;
+    const nextHeight = (previousBlock && previousBlock.height + 1);
+    const genesisHeight = block.height && block.height > -1 ? block.height : 1;
+    const height =  nextHeight || genesisHeight;
     logger.debug('Setting blockheight', height);
 
     let parentChainCoins = new Array<ICoin>();

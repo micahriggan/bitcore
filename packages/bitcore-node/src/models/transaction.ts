@@ -94,15 +94,15 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   async getBatchOps(params: BatchImportQueryBuilderParams) {
-    const { chain, network, initialSyncComplete } = params;
-    let { mintOps = [], spendOps = [], txOps = [] } = params;
-    const newMints = this.getMintOps(params);
-    const allMintOps = mintOps.concat(newMints);
+    const { txs, height, parentChain, mempoolTime, forkHeight, chain, network, initialSyncComplete } = params;
+    
+    // get the batches from the params
+    let { mintOps = new Array<CoinMintOp>(), spendOps = new Array<CoinSpendOp>(), txOps = new Array<TxOp>() } = params;
+    let newMintOps = this.getMintOps(params);
     logger.debug('Mint batch size', mintOps.length);
+    const allMintOps = mintOps.concat(newMintOps);
 
-    const spendParams = Object.assign({}, params, { mintOps: allMintOps });
-    const newSpends = this.getSpendOps(spendParams);
-    //const allSpenOps = spendOps.concat(newSpends);
+    const newSpendOps = this.getSpendOps({ txs, height, parentChain, mempoolTime, forkHeight, chain, network, mintOps: allMintOps });
     logger.debug('Spend batch size', spendOps.length);
 
     let newTxOps = new Array<TxOp>();
@@ -115,13 +115,13 @@ export class Transaction extends BaseModel<ITransaction> {
         let walletAddresses = await WalletAddressModel.collection
           .find({ address: { $in: mintOpsAddresses }, chain, network }, { batchSize: 100 })
           .toArray();
-        mintOps = await this.getWalletMintOps({ ...params, walletAddresses });
+        newMintOps = await this.getWalletMintOps({ ...params, walletAddresses });
       }
     }
     return {
       txOps: newTxOps,
-      mintOps: newMints,
-      spendOps: newSpends
+      mintOps: newMintOps,
+      spendOps: newSpendOps
     };
   }
 
@@ -242,6 +242,7 @@ export class Transaction extends BaseModel<ITransaction> {
           filter: { txid: txids[index], chain, network },
           update: {
             $set: {
+              txid: txids[index],
               chain,
               network,
               blockHeight: height,
@@ -323,8 +324,8 @@ export class Transaction extends BaseModel<ITransaction> {
     mintOps?: Array<CoinMintOp>;
   }) {
     const { chain, network, height, txs, parentChain, forkHeight } = params;
-    let { mintOps = [] } = params;
-    let spendOps: any[] = [];
+    let { mintOps = new Array<CoinMintOp>() } = params;
+    let spendOps = new Array<CoinSpendOp>();
     if (parentChain && forkHeight && height < forkHeight) {
       return spendOps;
     }

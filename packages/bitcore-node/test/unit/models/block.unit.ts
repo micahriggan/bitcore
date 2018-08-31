@@ -10,6 +10,7 @@ import { mockCollection } from '../../helpers/index.js';
 import { ChainStateProvider } from '../../../src/providers/chain-state';
 import { Adapters } from '../../../src/adapters';
 import { Bitcoin } from '../../../src/types/namespaces/Bitcoin';
+import { TEST_TX_1 } from '../../data/test-tx';
 
 describe('Block Model', function() {
   describe('addBlock', () => {
@@ -259,5 +260,66 @@ describe('Block Model', function() {
       expect(result.transactionCount).to.be.equal(block.transactionCount);
       expect(result).to.not.have.property('processed');
     });
+  });
+
+  it('should be able to parse an IBlock and generate mongo operations', async () => {
+    const convertedBlock = Adapters.convertBlock({ chain: 'BTC', network: 'mainnet', block: TEST_BLOCK });
+    const convertedTransactions = TEST_BLOCK.transactions.map(t =>
+      Adapters.convertTx({ chain: 'BTC', network: 'mainnet', tx: t, block: convertedBlock })
+    );
+    mockStorage({});
+    const blockOperation = await BlockModel.getBlockOp({
+      block: convertedBlock,
+      transactions: convertedTransactions,
+      initialSyncComplete: false,
+      chain: 'BTC',
+      network: 'mainnet'
+    });
+
+    expect(blockOperation.blockOp.$set.chain).to.be.eq('BTC');
+    expect(blockOperation.blockOp.$set.hash).to.be.eq(TEST_BLOCK.hash);
+    expect(blockOperation.blockOp.$set.merkleRoot).to.be.eq(convertedBlock.merkleRoot);
+    expect(blockOperation.blockOp.$set.bits).to.be.eq(convertedBlock.bits);
+    expect(blockOperation.blockOp.$set.network).to.be.eq('mainnet');
+    expect(blockOperation.blockOp.$set.processed).to.be.eq(false);
+    expect(blockOperation.blockOp.$set.reward).to.be.eq(convertedTransactions[0].outputs[0].value);
+    expect(blockOperation.blockOp.$set.transactionCount).to.be.eq(TEST_BLOCK.transactions.length);
+
+    const outputCount = convertedTransactions.reduce((sum, tx) => sum + tx.outputs.length, 0);
+    expect(blockOperation.mintOps.length).to.be.eq(outputCount);
+    expect(blockOperation.mintOps.length).to.be.gt(0);
+    expect(blockOperation.mintOps[0].updateOne.update.$set.address).to.be.eq(
+      convertedTransactions[0].outputs[0].address
+    );
+    expect(blockOperation.mintOps[0].updateOne.update.$set.value).to.be.eq(convertedTransactions[0].outputs[0].value);
+
+    expect(blockOperation.spendOps.length).to.be.eq(0);
+
+    expect(blockOperation.txOps.length).to.be.eq(1);
+    expect(blockOperation.txOps[0].updateOne.update.$set.blockHash).to.be.eq(convertedBlock.hash);
+    // since no previous blocks, start at block height 1
+    expect(blockOperation.txOps[0].updateOne.update.$set.blockHeight).to.be.eq(1);
+    expect(blockOperation.txOps[0].updateOne.update.$set.blockHash).to.be.eq(convertedBlock.hash);
+    expect(blockOperation.txOps[0].updateOne.update.$set.txid).to.be.eq(convertedTransactions[0].txid);
+  });
+
+  it('should be able to handle intra block spends', async () => {
+    const intraSpendBlock = Object.assign({}, TEST_BLOCK);
+    intraSpendBlock.transactions.push(TEST_TX_1);
+    const convertedBlock = Adapters.convertBlock({ chain: 'BTC', network: 'mainnet', block: intraSpendBlock});
+    const convertedTransactions = intraSpendBlock.transactions.map(t =>
+      Adapters.convertTx({ chain: 'BTC', network: 'mainnet', tx: t, block: convertedBlock })
+    );
+    mockStorage({});
+    const blockOperation = await BlockModel.getBlockOp({
+      block: convertedBlock,
+      transactions: convertedTransactions,
+      initialSyncComplete: false,
+      chain: 'BTC',
+      network: 'mainnet'
+    });
+
+    expect(blockOperation.mintOps[0].updateOne.update.$set.spentTxid).to.be.eq(TEST_TX_1.hash);
+    expect(blockOperation.mintOps[0].updateOne.update.$set.spentHeight).to.be.eq(1);
   });
 });

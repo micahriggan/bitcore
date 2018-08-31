@@ -4,17 +4,54 @@ export const TEST_TX = {
   isCoinbase: () => true,
   outputAmount: 0.09765625,
   inputs: [],
-  outputs: [],
+  outputs: [
+    {
+      account: '',
+      address: 'mjN5cBHegwmVZ61RKnCdsBG53QGBS2LpBo',
+      category: 'generate',
+      satoshis: 0.09765625,
+      vout: 0,
+      script: {
+        toBuffer: () => Buffer.from(''),
+        classify: () => '',
+        chunks: new Array<{ buf: Buffer }>(),
+        toAddress: () => ''
+      }
+    }
+  ],
   nLockTime: 0,
   toBuffer: () => Buffer.from('')
 };
 export const TEST_TX_1 = {
   hash: 'b8abbdd4428b32cdf79a29728ea7a6d102444c880dca9be489c1ba346dcc5436',
   _hash: 'b8abbdd4428b32cdf79a29728ea7a6d102444c880dca9be489c1ba346dcc5436',
-  isCoinbase: () => true,
+  isCoinbase: () => false,
   outputAmount: 0.0976,
-  inputs: [],
-  outputs: [],
+  inputs: [
+    {
+      toObject: () => {
+        return {
+          prevTxId: '08e23107e8449f02568d37d37aa76e840e55bbb5f100ed8ad257af303db88c08',
+          outputIndex: 0
+        };
+      }
+    }
+  ],
+  outputs: [
+    {
+      account: '',
+      address: 'mjN5cBHegwmVZ61RKnCdsBG53QGBS2LpBo',
+      category: 'generate',
+      satoshis: 0.09765625,
+      vout: 0,
+      script: {
+        toBuffer: () => Buffer.from(''),
+        classify: () => '',
+        chunks: new Array<{ buf: Buffer }>(),
+        toAddress: () => ''
+      }
+    }
+  ],
   nLockTime: 0,
   toBuffer: () => Buffer.from('')
 };
