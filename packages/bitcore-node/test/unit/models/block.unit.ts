@@ -345,12 +345,13 @@ describe('Block Model', function() {
       Adapters.convertTx({ chain: 'BTC', network: 'mainnet', tx: t, block: convertedBlock })
     );
 
+    const previousBlock = blockOperation.blockOp.$set as Bucket<MongoBound<IBlock>>;
     const blockOperation2 = await BlockModel.getBlockOp({
       block: convertedBlock2,
       transactions: convertedTransactions2,
       initialSyncComplete: false,
       mintOps: blockOperation.mintOps,
-      previousBlock: convertedBlock as Bucket<MongoBound<IBlock>>,
+      previousBlock,
       chain: 'BTC',
       network: 'mainnet'
     });
