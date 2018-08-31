@@ -169,7 +169,7 @@ export class Block extends BaseModel<IBlock> {
       const { chain, network, hash } = block;
       await Promise.all([
         BlockModel.collection.update({ hash, chain, network }, blockOp, { upsert: true }),
-        TransactionModel.processBatches({ mintOps, spendOps, txOps })
+        TransactionModel.processBatchOps({ mintOps, spendOps, txOps })
       ]);
       await BlockModel.collection.update({ hash: hash, chain, network }, { $set: { processed: true } });
     }
@@ -206,7 +206,7 @@ export class Block extends BaseModel<IBlock> {
       logger.debug('Updating previous block.nextBlockHash ', header.hash);
     }
 
-    await TransactionModel.processBatches({ mintOps, spendOps, txOps });
+    await TransactionModel.processBatchOps({ mintOps, spendOps, txOps });
 
     return this.collection.update({ hash: header.hash, chain, network }, { $set: { processed: true } });
   }

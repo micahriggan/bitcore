@@ -1,6 +1,5 @@
 import { CoinModel, ICoin } from './coin';
 import { WalletAddressModel, IWalletAddress } from './walletAddress';
-import { partition } from '../utils/partition';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel } from './base';
@@ -95,7 +94,7 @@ export class Transaction extends BaseModel<ITransaction> {
 
   async getBatchOps(params: BatchImportQueryBuilderParams) {
     const { txs, height, parentChain, mempoolTime, forkHeight, chain, network, initialSyncComplete } = params;
-    
+
     // get the batches from the params
     let { mintOps = new Array<CoinMintOp>(), spendOps = new Array<CoinSpendOp>(), txOps = new Array<TxOp>() } = params;
     let newMintOps = this.getMintOps(params);
@@ -107,7 +106,7 @@ export class Transaction extends BaseModel<ITransaction> {
 
     let newTxOps = new Array<TxOp>();
     if (mintOps) {
-      newTxOps = await this.addTransactions(params);
+      newTxOps = await this.getTxOps(params);
       //const allTxOps = txOps.concat(newTxOps);
       logger.debug('Tx batch size', txOps.length);
       if (initialSyncComplete) {
@@ -154,36 +153,29 @@ export class Transaction extends BaseModel<ITransaction> {
     }
 
     let batchesOfOperations = await this.getBatchOps({ ...params, parentChainCoins });
-    await this.processBatches(batchesOfOperations);
+    await this.processBatchOps(batchesOfOperations);
   }
 
-  async processBatches(params: { mintOps: Array<any>; spendOps: Array<any>; txOps: Array<any> }) {
+  async processBatchOps(params: { mintOps: Array<CoinMintOp>; spendOps: Array<CoinSpendOp>; txOps: Array<TxOp> }) {
     let { mintOps, spendOps, txOps } = params;
+    let writeOps = new Array<Promise<any>>()
     if (mintOps.length) {
       logger.debug('Writing Mints', mintOps.length);
-      mintOps = partition(mintOps, mintOps.length / config.maxPoolSize);
-      mintOps = mintOps.map((mintBatch: Array<any>) => CoinModel.collection.bulkWrite(mintBatch, { ordered: false }));
+      writeOps.push(CoinModel.collection.bulkWrite(mintOps));
     }
     if (spendOps.length) {
       logger.debug('Writing Spends', spendOps.length);
-      spendOps = partition(spendOps, spendOps.length / config.maxPoolSize);
-      spendOps = spendOps.map((spendBatch: Array<any>) =>
-        CoinModel.collection.bulkWrite(spendBatch, { ordered: false })
-      );
+      writeOps.push(CoinModel.collection.bulkWrite(spendOps, { ordered: false }));
     }
-    const coinOps = mintOps.concat(spendOps);
-    await Promise.all(coinOps);
+    await Promise.all(writeOps);
 
     if (mintOps && txOps.length) {
       logger.debug('Writing Transactions', txOps.length);
-      txOps = partition(txOps, txOps.length / config.maxPoolSize);
-      txOps = txOps.map(txBatch => TransactionModel.collection.bulkWrite(txBatch, { ordered: false }));
+      await TransactionModel.collection.bulkWrite(txOps, { ordered: false });
     }
-
-    await Promise.all(txOps);
   }
 
-  async addTransactions(params: {
+  async getTxOps(params: {
     txs: Array<VerboseTransaction>;
     height: number;
     blockTime?: Date;
@@ -341,13 +333,13 @@ export class Transaction extends BaseModel<ITransaction> {
       }
       let txid = tx.txid;
       for (let input of tx.inputs) {
-        let sameBlockSpend = mintMap[input.mintTxid] && mintMap[input.mintTxid][input.mintIndex];
-        if (sameBlockSpend) {
+        let sameBatchSpend = mintMap[input.mintTxid] && mintMap[input.mintTxid][input.mintIndex];
+        if (sameBatchSpend) {
           sameBlockSpends++;
-          sameBlockSpend.updateOne.update.$set.spentHeight = height;
-          sameBlockSpend.updateOne.update.$set.spentTxid = txid;
+          sameBatchSpend.updateOne.update.$set.spentHeight = height;
+          sameBatchSpend.updateOne.update.$set.spentTxid = txid;
           if (config.pruneSpentScripts && height > 0) {
-            delete sameBlockSpend.updateOne.update.$set.script;
+            delete sameBatchSpend.updateOne.update.$set.script;
           }
           continue;
         }

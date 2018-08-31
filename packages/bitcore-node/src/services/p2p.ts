@@ -7,7 +7,7 @@ import { TransactionModel, TxOp, CoinSpendOp, CoinMintOp } from '../models/trans
 import { Bitcoin } from '../types/namespaces/Bitcoin';
 import { StateModel } from '../models/state';
 import { Adapters, VerboseTransaction, Bucket } from '../adapters';
-const Chain = require('../chain');
+import { Chain } from '../chain';
 const LRU = require('lru-cache');
 
 export class P2pService {
@@ -149,6 +149,9 @@ export class P2pService {
       for (let network of Object.keys(config.chains[chain])) {
         const chainConfig = config.chains[chain][network];
         if (chainConfig.chainSource && chainConfig.chainSource !== 'p2p') {
+          continue;
+        }
+        if (!Object.keys(Chain).includes(chain)) {
           continue;
         }
         new P2pService({
