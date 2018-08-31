@@ -76,6 +76,12 @@ export type TxOp = {
   };
 };
 
+// use this to find mints
+// clear it when the incoming mints have decreased in size
+// which would indicate a new batch
+let mintMap = {};
+let lastIndex = 0;
+
 @LoggifyClass
 export class Transaction extends BaseModel<ITransaction> {
   constructor() {
@@ -321,11 +327,22 @@ export class Transaction extends BaseModel<ITransaction> {
     if (parentChain && forkHeight && height < forkHeight) {
       return spendOps;
     }
-    let mintMap = {};
-    for (let mintOp of mintOps) {
-      mintMap[mintOp.updateOne.filter.mintTxid] = mintMap[mintOp.updateOne.filter.mintIndex] || {};
-      mintMap[mintOp.updateOne.filter.mintTxid][mintOp.updateOne.filter.mintIndex] = mintOp;
+
+    if (mintOps.length < Object.keys(mintMap).length) {
+      mintMap = {};
+      lastIndex = 0;
     }
+    for (let i = lastIndex; i < mintOps.length; i++) {
+      const mintOp = mintOps[i];
+      const { mintTxid, mintIndex } = mintOp.updateOne.filter;
+      if (mintMap[mintTxid] && mintMap[mintTxid][mintIndex]) {
+        continue;
+      }
+      mintMap[mintTxid] = mintMap[mintIndex] || {};
+      mintMap[mintTxid][mintOp.updateOne.filter.mintIndex] = mintOp;
+      lastIndex = i;
+    }
+    
     let sameBlockSpends = 0;
     for (let tx of txs) {
       if (tx.bucket.coinbase) {
