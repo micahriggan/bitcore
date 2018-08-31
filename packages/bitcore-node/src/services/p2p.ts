@@ -8,8 +8,10 @@ import { Bitcoin } from '../types/namespaces/Bitcoin';
 import { StateModel } from '../models/state';
 import { Adapters, VerboseTransaction, Bucket } from '../adapters';
 import { Chain } from '../chain';
+import { LoggifyClass } from "../decorators/Loggify";
 const LRU = require('lru-cache');
 
+@LoggifyClass
 export class P2pService {
   private chain: string;
   private network: string;
@@ -365,7 +367,7 @@ export class P2pService {
             lastLog = Date.now();
           }
 
-          if (mintBatch.length > 100000) {
+          if (blockBatch.length > 500 || mintBatch.length > 100000) {
             logger.info(`Writing ${blockBatch.length} blocks `, {
               chain,
               network,

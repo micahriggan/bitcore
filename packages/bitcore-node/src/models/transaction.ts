@@ -76,14 +76,14 @@ export type TxOp = {
   };
 };
 
-// use this to find mints
-// clear it when the incoming mints have decreased in size
-// which would indicate a new batch
-let mintMap = {};
-let lastIndex = 0;
-
 @LoggifyClass
 export class Transaction extends BaseModel<ITransaction> {
+  // use this to find mints
+  // clear it when the incoming mints have decreased in size
+  // which would indicate a new batch
+  mintMap = {};
+  lastIndex = 0;
+
   constructor() {
     super('transactions');
   }
@@ -107,7 +107,16 @@ export class Transaction extends BaseModel<ITransaction> {
     logger.debug('Mint batch size', mintOps.length);
     const allMintOps = mintOps.concat(newMintOps);
 
-    const newSpendOps = this.getSpendOps({ txs, height, parentChain, mempoolTime, forkHeight, chain, network, mintOps: allMintOps });
+    const newSpendOps = this.getSpendOps({
+      txs,
+      height,
+      parentChain,
+      mempoolTime,
+      forkHeight,
+      chain,
+      network,
+      mintOps: allMintOps
+    });
     logger.debug('Spend batch size', spendOps.length);
 
     let newTxOps = new Array<TxOp>();
@@ -164,7 +173,7 @@ export class Transaction extends BaseModel<ITransaction> {
 
   async processBatchOps(params: { mintOps: Array<CoinMintOp>; spendOps: Array<CoinSpendOp>; txOps: Array<TxOp> }) {
     let { mintOps, spendOps, txOps } = params;
-    let writeOps = new Array<Promise<any>>()
+    let writeOps = new Array<Promise<any>>();
     if (mintOps.length) {
       logger.debug('Writing Mints', mintOps.length);
       writeOps.push(CoinModel.collection.bulkWrite(mintOps));
@@ -328,21 +337,21 @@ export class Transaction extends BaseModel<ITransaction> {
       return spendOps;
     }
 
-    if (mintOps.length < Object.keys(mintMap).length) {
-      mintMap = {};
-      lastIndex = 0;
+    if (mintOps.length < Object.keys(this.mintMap).length) {
+      this.mintMap = {};
+      this.lastIndex = 0;
     }
-    for (let i = lastIndex; i < mintOps.length; i++) {
+    for (let i = this.lastIndex; i < mintOps.length; i++) {
       const mintOp = mintOps[i];
       const { mintTxid, mintIndex } = mintOp.updateOne.filter;
-      if (mintMap[mintTxid] && mintMap[mintTxid][mintIndex]) {
+      if (this.mintMap[mintTxid] && this.mintMap[mintTxid][mintIndex]) {
         continue;
       }
-      mintMap[mintTxid] = mintMap[mintIndex] || {};
-      mintMap[mintTxid][mintOp.updateOne.filter.mintIndex] = mintOp;
-      lastIndex = i;
+      this.mintMap[mintTxid] = this.mintMap[mintIndex] || {};
+      this.mintMap[mintTxid][mintIndex] = {index: i};
+      this.lastIndex = i;
     }
-    
+
     let sameBlockSpends = 0;
     for (let tx of txs) {
       if (tx.bucket.coinbase) {
@@ -350,13 +359,14 @@ export class Transaction extends BaseModel<ITransaction> {
       }
       let txid = tx.txid;
       for (let input of tx.inputs) {
-        let sameBatchSpend = mintMap[input.mintTxid] && mintMap[input.mintTxid][input.mintIndex];
+        let sameBatchSpend = this.mintMap[input.mintTxid] && this.mintMap[input.mintTxid][input.mintIndex];
         if (sameBatchSpend) {
           sameBlockSpends++;
-          sameBatchSpend.updateOne.update.$set.spentHeight = height;
-          sameBatchSpend.updateOne.update.$set.spentTxid = txid;
+          const mintOp = mintOps[sameBatchSpend.index];
+          mintOp.updateOne.update.$set.spentHeight = height;
+          mintOp.updateOne.update.$set.spentTxid = txid;
           if (config.pruneSpentScripts && height > 0) {
-            delete sameBatchSpend.updateOne.update.$set.script;
+            delete mintOp.updateOne.update.$set.script;
           }
           continue;
         }

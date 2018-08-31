@@ -357,7 +357,7 @@ describe('Block Model', function() {
     });
 
     expect(blockOperation.mintOps[0].updateOne.update.$set.spentTxid).to.be.eq(TEST_TX_1.hash);
-    expect(blockOperation.mintOps[0].updateOne.update.$set.spentHeight).to.be.eq(1);
+    expect(blockOperation.mintOps[0].updateOne.update.$set.spentHeight).to.be.eq(2);
     expect(blockOperation2.blockOp.$set.height).to.be.eq(2);
   });
 });
