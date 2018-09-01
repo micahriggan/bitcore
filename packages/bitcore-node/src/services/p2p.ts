@@ -367,7 +367,7 @@ export class P2pService {
             lastLog = Date.now();
           }
 
-          if (blockBatch.length > 500 || mintBatch.length > 100000) {
+          if (blockBatch.length > 500 || mintBatch.length > 150000) {
             logger.info(`Writing ${blockBatch.length} blocks `, {
               chain,
               network,

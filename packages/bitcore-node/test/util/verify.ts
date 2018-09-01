@@ -232,7 +232,7 @@ if (require.main === module)
   (async () => {
     const info = {
       chain: process.env.CHAIN || 'BTC',
-      network: process.env.NETWORK || 'testnet'
+      network: process.env.NETWORK || 'mainnet'
     };
     const creds = config.chains[info.chain][info.network].rpc;
 

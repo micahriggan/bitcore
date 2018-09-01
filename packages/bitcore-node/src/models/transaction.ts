@@ -7,6 +7,7 @@ import logger from '../logger';
 import config from '../config';
 import { ObjectId } from 'mongodb';
 import { VerboseTransaction } from '../adapters';
+import { partition } from '../utils/partition';
 
 export type ITransaction = {
   txid: string;
@@ -176,17 +177,24 @@ export class Transaction extends BaseModel<ITransaction> {
     let writeOps = new Array<Promise<any>>();
     if (mintOps.length) {
       logger.debug('Writing Mints', mintOps.length);
-      writeOps.push(CoinModel.collection.bulkWrite(mintOps));
+      let mintBatches: CoinMintOp[] | CoinMintOp[][] = mintOps.slice();
+      mintBatches = partition(mintBatches, 100);
+      writeOps.concat(mintBatches.map(batch => CoinModel.collection.bulkWrite(batch)));
     }
     if (spendOps.length) {
       logger.debug('Writing Spends', spendOps.length);
+      let spendBatches: CoinSpendOp[] | CoinSpendOp[][] = spendOps.slice();
+      spendBatches = partition(spendBatches, 100);
       writeOps.push(CoinModel.collection.bulkWrite(spendOps, { ordered: false }));
     }
     await Promise.all(writeOps);
 
-    if (mintOps && txOps.length) {
+    if (txOps.length) {
       logger.debug('Writing Transactions', txOps.length);
-      await TransactionModel.collection.bulkWrite(txOps, { ordered: false });
+      let txBatches: TxOp[] | TxOp[][] = txOps.slice();
+      txBatches = partition(txBatches, 100);
+      const writeTxs = txBatches.map(tx => TransactionModel.collection.bulkWrite(tx, { ordered: false }));
+      await Promise.all(writeTxs);
     }
   }
 
@@ -348,7 +356,7 @@ export class Transaction extends BaseModel<ITransaction> {
         continue;
       }
       this.mintMap[mintTxid] = this.mintMap[mintIndex] || {};
-      this.mintMap[mintTxid][mintIndex] = {index: i};
+      this.mintMap[mintTxid][mintIndex] = { index: i };
       this.lastIndex = i;
     }
 

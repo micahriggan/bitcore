@@ -72,17 +72,16 @@ export class Block extends BaseModel<IBlock> {
   }): Promise<BlockOp> {
     const { block, transactions, chain, network, initialSyncComplete, forkHeight, parentChain } = params;
     let { previousBlock } = params;
-    const blockTime = block.time.getTime() * 1000;
     if (!previousBlock) {
       previousBlock = await this.collection.findOne({ hash: block.previousBlockHash, chain, network });
     }
     const prevHash = previousBlock != null ? previousBlock.hash : '';
     const blockTimeNormalized = (() => {
       const prevTime = previousBlock ? previousBlock.timeNormalized : null;
-      if (prevTime && blockTime <= prevTime.getTime()) {
+      if (prevTime && block.time.getTime() <= prevTime.getTime()) {
         return prevTime.getTime() + 1;
       } else {
-        return blockTime;
+        return block.time;
       }
     })();
 
@@ -106,7 +105,7 @@ export class Block extends BaseModel<IBlock> {
     const { mintOps, spendOps, txOps } = await TransactionModel.getBatchOps({
       txs: transactions,
       blockHash: block.hash,
-      blockTime: new Date(blockTime),
+      blockTime: new Date(block.time),
       blockTimeNormalized: new Date(blockTimeNormalized),
       height: height,
       chain,
@@ -129,7 +128,7 @@ export class Block extends BaseModel<IBlock> {
           version: block.version,
           previousBlockHash: block.previousBlockHash,
           merkleRoot: block.merkleRoot,
-          time: new Date(blockTime),
+          time: new Date(block.time),
           timeNormalized: new Date(blockTimeNormalized),
           bits: block.bits,
           processed: false,
