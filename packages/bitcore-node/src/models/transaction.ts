@@ -178,13 +178,13 @@ export class Transaction extends BaseModel<ITransaction> {
     if (mintOps.length) {
       logger.debug('Writing Mints', mintOps.length);
       let mintBatches: CoinMintOp[] | CoinMintOp[][] = mintOps.slice();
-      mintBatches = partition(mintBatches, 100);
+      mintBatches = partition(mintBatches, mintBatches.length / 10);
       writeOps.concat(mintBatches.map(batch => CoinModel.collection.bulkWrite(batch)));
     }
     if (spendOps.length) {
       logger.debug('Writing Spends', spendOps.length);
       let spendBatches: CoinSpendOp[] | CoinSpendOp[][] = spendOps.slice();
-      spendBatches = partition(spendBatches, 100);
+      spendBatches = partition(spendBatches, spendBatches.length / 10);
       writeOps.push(CoinModel.collection.bulkWrite(spendOps, { ordered: false }));
     }
     await Promise.all(writeOps);
@@ -192,7 +192,7 @@ export class Transaction extends BaseModel<ITransaction> {
     if (txOps.length) {
       logger.debug('Writing Transactions', txOps.length);
       let txBatches: TxOp[] | TxOp[][] = txOps.slice();
-      txBatches = partition(txBatches, 100);
+      txBatches = partition(txBatches, txOps.length / 10);
       const writeTxs = txBatches.map(tx => TransactionModel.collection.bulkWrite(tx, { ordered: false }));
       await Promise.all(writeTxs);
     }
