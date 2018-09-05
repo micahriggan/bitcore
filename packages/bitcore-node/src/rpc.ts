@@ -24,11 +24,15 @@ export class RPC {
         if (err) {
           return callback(err);
         } else if (res) {
-          const { body } = res;
-          if (res.body && res.body.error) {
-            return callback(body.error);
+          if (res.body) {
+            if (res.body.error) {
+              return callback(res.body.error);
+            } else if (res.body.result) {
+              return callback(null, res.body && res.body.result);
+            } else {
+              return callback({ msg: 'No error or body found', body: res.body });
+            }
           }
-          return callback(null, body && body.result);
         } else {
           return callback('No response or error returned by rpc call');
         }
