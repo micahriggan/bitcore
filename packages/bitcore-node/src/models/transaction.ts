@@ -81,7 +81,9 @@ export class Transaction extends BaseModel<ITransaction> {
       let txOps = await this.addTransactions(params);
       logger.debug('Writing Transactions', txOps.length);
       const txBatches = partition(txOps, txOps.length / config.maxPoolSize);
-      txs = txBatches.map((txBatch: Array<any>) => this.collection.bulkWrite(txBatch, { ordered: false, j: false, w: 0 }));
+      txs = txBatches.map((txBatch: Array<any>) =>
+        this.collection.bulkWrite(txBatch, { ordered: false, j: false, w: 0 })
+      );
     }
 
     await Promise.all(txs);
@@ -103,34 +105,49 @@ export class Transaction extends BaseModel<ITransaction> {
     let { blockHash, blockTime, blockTimeNormalized, chain, height, network, txs, initialSyncComplete } = params;
     let txids = txs.map(tx => tx._hash);
 
-    type TaggedCoin = ICoin & { _id: string };
-    let mintWallets;
-    let spentWallets;
+    type TaggedCoin = { _id: string; wallets: Array<ObjectID>; minted: number; spent: number };
 
-    if (initialSyncComplete){
-      mintWallets = await CoinModel.collection
-        .aggregate<TaggedCoin>([
-          { $match: { mintTxid: { $in: txids }, chain, network } },
-          { $unwind: '$wallets' },
-          { $group: { _id: '$mintTxid', wallets: { $addToSet: '$wallets' } } }
-        ])
-        .toArray();
+    let mintWallets = await CoinModel.collection
+      .aggregate<TaggedCoin>([
+        { $match: { mintTxid: { $in: txids }, chain, network } },
+        { $unwind: '$wallets' },
+        { $group: { _id: '$mintTxid', wallets: { $addToSet: '$wallets' }, minted: { $sum: '$value' } } }
+      ])
+      .toArray();
 
-      spentWallets = await CoinModel.collection
-        .aggregate<TaggedCoin>([
-       { $match: { spentTxid: { $in: txids }, chain, network } },
-          { $unwind: '$wallets' },
-          { $group: { _id: '$spentTxid', wallets: { $addToSet: '$wallets' } } }
-        ])
-        .toArray();
-    }
-
+    let spentWallets = await CoinModel.collection
+      .aggregate<TaggedCoin>([
+        { $match: { spentTxid: { $in: txids }, chain, network } },
+        { $unwind: '$wallets' },
+        { $group: { _id: '$spentTxid', wallets: { $addToSet: '$wallets' }, spent: { $sum: '$value' } } }
+      ])
+      .toArray();
+    let allAggregations = mintWallets.concat(spentWallets);
 
     let txOps = txs.map((tx, index) => {
+      const filteredAggregations = allAggregations.filter(aggregation => aggregation._id === txids[index]);
+
+      // calculate fee from aggreations
+      let totalMinted = 0;
+      let totalSpent = 0;
+      for (let agg of filteredAggregations) {
+        if (agg.minted > 0) {
+          totalMinted += agg.minted;
+        }
+        if (agg.spent > 0) {
+          totalSpent += agg.spent;
+        }
+      }
+      let fee = totalMinted - totalSpent;
+      if (fee < 0) {
+        fee = 0;
+      }
+
+      // tag wallets
       let wallets = new Array<ObjectID>();
-      if (initialSyncComplete){
-        for (let wallet of mintWallets.concat(spentWallets).filter(wallet => wallet._id === txids[index])) {
-          for (let walletMatch of wallet.wallets) {
+      if (initialSyncComplete) {
+        for (let walletGroup of filteredAggregations) {
+          for (let walletMatch of walletGroup.wallets) {
             if (!wallets.find(wallet => wallet.toHexString() === walletMatch.toHexString())) {
               wallets.push(walletMatch);
             }
@@ -148,6 +165,7 @@ export class Transaction extends BaseModel<ITransaction> {
               blockHeight: height,
               blockHash,
               blockTime,
+              fee,
               blockTimeNormalized,
               coinbase: tx.isCoinbase(),
               size: tx.toBuffer().length,
@@ -258,7 +276,7 @@ export class Transaction extends BaseModel<ITransaction> {
     network: string;
     mintOps?: Array<any>;
   }): Array<any> {
-    let { chain, network, height, txs, parentChain, forkHeight, mintOps=[] } = params;
+    let { chain, network, height, txs, parentChain, forkHeight, mintOps = [] } = params;
     let spendOps: any[] = [];
     if (parentChain && forkHeight && height < forkHeight) {
       return spendOps;
@@ -276,7 +294,7 @@ export class Transaction extends BaseModel<ITransaction> {
       for (let input of tx.inputs) {
         let inputObj = input.toObject();
         let sameBlockSpend = mintMap[inputObj.prevTxId] && mintMap[inputObj.prevTxId][inputObj.outputIndex];
-        if (sameBlockSpend){
+        if (sameBlockSpend) {
           sameBlockSpend.updateOne.update.$set.spentHeight = height;
           sameBlockSpend.updateOne.update.$set.spentTxid = txid;
           if (config.pruneSpentScripts && height > 0) {
