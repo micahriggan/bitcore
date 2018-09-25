@@ -8,9 +8,9 @@ import { Storage } from '../../../src/services/storage';
 import { mockStorage } from '../../helpers';
 import { mockCollection } from '../../helpers/index.js';
 import { ChainStateProvider } from '../../../src/providers/chain-state';
-import { BitcoinAdapter } from '../../../src/adapters/bitcoin';
 import { ObjectID } from 'mongodb';
 import { MongoBound } from '../../../src/models/base';
+import { BitcoinAdapter } from '../../../src/services/p2p/bitcoin/bitcoin-adapter';
 
 describe('Block Model', function() {
   describe('addBlock', () => {
@@ -61,7 +61,7 @@ describe('Block Model', function() {
       const { query, options } = Storage.getFindOptions<MongoBound<IBlock>>(BlockModel, {
         since: id,
         paging: '_id',
-        limit: 100,
+        limit: 100
       });
       expect(options.sort).to.be.deep.eq({ _id: -1 });
       expect(options.limit).to.be.eq(100);

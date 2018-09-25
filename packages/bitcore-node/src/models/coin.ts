@@ -1,7 +1,7 @@
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel, MongoBound } from './base';
 import { ObjectID } from 'mongodb';
-import { Chain } from '../chain';
+
 export type ICoin = {
   network: string;
   chain: string;

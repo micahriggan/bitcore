@@ -4,7 +4,8 @@ import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel, MongoBound } from './base';
 import logger from '../logger';
-import { Bucket, VerboseTransaction } from '../adapters';
+import { Bucket } from '../types/namespaces/ChainAdapter';
+import { VerboseTransaction } from '../services/p2p';
 
 export type IBlock = {
   chain: string;
@@ -47,7 +48,7 @@ export class Block extends BaseModel<IBlock> {
 
   async addBlock(params: {
     block: Bucket<IBlock>;
-    transactions: VerboseTransaction[];
+    transactions: Array<Bucket<VerboseTransaction>>;
     parentChain?: string;
     forkHeight?: number;
     initialSyncComplete: boolean;

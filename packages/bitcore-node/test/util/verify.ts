@@ -10,7 +10,7 @@ import { Storage } from '../../src/services/storage';
 import config from '../../src/config';
 import logger from '../../src/logger';
 import { ChainStateProvider } from '../../src/providers/chain-state';
-import { IBitcoinTransaction } from '../../src/adapters/bitcoin';
+import { IBitcoinTransaction } from "../../src/services/p2p/bitcoin/bitcoin-adapter";
 const SATOSHI = 100000000.0;
 
 export async function blocks(

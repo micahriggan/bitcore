@@ -5,8 +5,8 @@ import { TransactionModel } from '../../../src/models/transaction';
 import { CoinModel, SpentHeightIndicators } from '../../../src/models/coin';
 import { TEST_BLOCK } from '../../data/test-block';
 import logger from '../../../src/logger';
-import { BitcoinAdapter, IBitcoinTransaction } from '../../../src/adapters/bitcoin';
 import { TEST_TX } from '../../data/test-tx';
+import { BitcoinAdapter, IBitcoinTransaction } from "../../../src/services/p2p/bitcoin/bitcoin-adapter";
 
 describe('Block Model', function() {
   beforeEach(async () => {

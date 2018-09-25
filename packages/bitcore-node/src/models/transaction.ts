@@ -9,6 +9,8 @@ import logger from '../logger';
 import config from '../config';
 import { BulkWriteOpResultObject } from 'mongodb';
 import { StreamingFindOptions, Storage } from '../services/storage';
+import { VerboseTransaction } from "../services/p2p";
+import { Bucket } from "../types/namespaces/ChainAdapter";
 
 export type ITransaction = {
   txid: string;
@@ -40,7 +42,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   async batchImport(params: {
-    txs: Array<VerboseTransaction>;
+    txs: Array<Bucket<VerboseTransaction>>;
     height: number;
     mempoolTime?: Date;
     blockTime?: Date;
@@ -86,7 +88,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   async addTransactions(params: {
-    txs: Array<VerboseTransaction>;
+    txs: Array<Bucket<VerboseTransaction>>;
     height: number;
     blockTime?: Date;
     blockHash?: string;
@@ -241,7 +243,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   getSpendOps(params: {
-    txs: Array<VerboseTransaction>;
+    txs: Array<Bucket<VerboseTransaction>>;
     height: number;
     parentChain?: string;
     forkHeight?: number;
@@ -304,23 +306,10 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   _apiTransform(tx: Partial<MongoBound<ITransaction>>, options: TransformOptions): Partial<ITransaction> | string {
-    let transform = {
-      _id: tx._id,
-      txid: tx.txid,
-      network: tx.network,
-      blockHeight: tx.blockHeight,
-      blockHash: tx.blockHash,
-      blockTime: tx.blockTime,
-      blockTimeNormalized: tx.blockTimeNormalized,
-      coinbase: tx.coinbase,
-      locktime: tx.locktime,
-      size: tx.size,
-      fee: tx.fee
-    };
     if (options && options.object) {
-      return transform;
+      return tx;
     }
-    return JSON.stringify(transform);
+    return JSON.stringify(tx);
   }
 }
 export let TransactionModel = new Transaction();

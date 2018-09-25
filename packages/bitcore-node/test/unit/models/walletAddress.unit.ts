@@ -35,7 +35,6 @@ describe('WalletAddress Model', function () {
   });
 
   describe('getUpdateCoinsObj', () => {
-    const id = new ObjectID();
     it('should return the update coin object', async () => {
       const id = new ObjectID();
       let wallet = {

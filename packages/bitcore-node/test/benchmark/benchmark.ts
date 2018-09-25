@@ -7,8 +7,9 @@ import { Storage } from '../../src/services/storage';
 import { BlockModel } from '../../src/models/block';
 import { BitcoinBlockType } from '../../src/types/namespaces/Bitcoin/Block';
 import { resetDatabase } from '../helpers/index.js';
-import { Adapters } from '../../src/adapters';
-import { Bitcoin } from '../../src/types/namespaces/Bitcoin';
+import { BitcoinAdapter } from "../../src/services/p2p/bitcoin/bitcoin-adapter";
+
+const bitcoinAdapter = new BitcoinAdapter();
 
 function* generateBlocks(blockCount: number, blockSizeMb: number) {
   let prevBlock: BitcoinBlockType | undefined = undefined;
@@ -109,7 +110,7 @@ async function benchmark(blockCount: number, blockSizeMb: number) {
   const startTime = new Date();
   for (let block of generateBlocks(blockCount, blockSizeMb)) {
     console.log('Adding block', block.hash);
-    const convertedBlock = Adapters.convertBlock<Bitcoin.Block>({ chain: 'BTC', network: 'testnet', block });
+    const convertedBlock = bitcoinAdapter.convertBlock({ chain: 'BTC', network: 'testnet', block });
     await BlockModel.addBlock({
       block: convertedBlock,
       chain: 'BENCH',
