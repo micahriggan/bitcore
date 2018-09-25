@@ -61,7 +61,7 @@ export class Block extends BaseModel<IBlock> {
       hash: block.hash,
       time: block.time
     };
-    const blockTime = block.time.getTime() * 1000;
+    const blockTime = block.time.getTime();
 
     const reorg = await this.handleReorg({ header, chain, network });
 

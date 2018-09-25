@@ -88,8 +88,8 @@ export class StorageService {
             typecastedValue = new Date(oldValue) as any;
             break;
         }
-      // TODO: Micah check this!
-      } else if (modelKey == "_id") {
+        // TODO: Micah check this!
+      } else if (modelKey == '_id') {
         typecastedValue = new ObjectID(oldValue) as any;
       }
     }
@@ -123,17 +123,15 @@ export class StorageService {
   }
   getFindOptions<T>(model: TransformableModel<T>, originalOptions: StreamingFindOptions<T>) {
     let options: StreamingFindOptions<T> = {};
-    let query: any = {}, since: any;
-    if ( originalOptions.paging &&
-      this.validPagingProperty(model, originalOptions.paging)
-    ) {
-
-
+    let query: any = {};
+    let since: any;
+    if (originalOptions.sort) {
+      options.sort = originalOptions.sort;
+    }
+    if (originalOptions.paging && this.validPagingProperty(model, originalOptions.paging)) {
       if (originalOptions.since !== undefined) {
         since = this.typecastForDb(model, originalOptions.paging, originalOptions.since);
       }
-
-
       if (originalOptions.direction && Number(originalOptions.direction) === 1) {
         if (since) {
           query[originalOptions.paging] = { $gt: since };
