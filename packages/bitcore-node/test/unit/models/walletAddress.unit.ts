@@ -35,10 +35,11 @@ describe('WalletAddress Model', function () {
   });
 
   describe('getUpdateCoinsObj', () => {
+    const id = new ObjectID();
     it('should return the update coin object', async () => {
       const id = new ObjectID();
       let wallet = {
-        _id: id ,
+        _id: id,
         name: 'Wallet1',
         singleAddress: true,
         pubKey: 'xpub661MyMwAqRbcFa63vSTa3vmRiVWbpLWhgUsyvjfMFP7ePR5osC1rtPUkgJrB94V1YEQathfWLm9U5zaZttYPDPWhASwJGUvYvPGtofqnTGN',

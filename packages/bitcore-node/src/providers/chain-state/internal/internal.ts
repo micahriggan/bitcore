@@ -3,15 +3,15 @@ import through2 from 'through2';
 
 import { MongoBound } from '../../../models/base';
 import { ObjectId } from 'mongodb';
-import { CoinModel, ICoin } from '../../../models/coin';
-import { BlockModel } from '../../../models/block';
+import { CoinModel, ICoin, SpentHeightIndicators } from '../../../models/coin';
+import { BlockModel, IBlock } from '../../../models/block';
 import { WalletModel, IWallet } from '../../../models/wallet';
 import { WalletAddressModel } from '../../../models/walletAddress';
 import { CSP } from '../../../types/namespaces/ChainStateProvider';
-import { Storage } from '../../../services/storage';
+import { Storage, StreamingFindOptions } from '../../../services/storage';
 import { RPC } from '../../../rpc';
 import { LoggifyClass } from '../../../decorators/Loggify';
-import { TransactionModel } from '../../../models/transaction';
+import { TransactionModel, ITransaction } from '../../../models/transaction';
 import { StateModel } from '../../../models/state';
 import { ListTransactionsStream } from './transforms';
 import { StringifyJsonStream } from '../../../utils/stringifyJsonStream';
@@ -40,29 +40,28 @@ export class InternalStateProvider implements CSP.IChainStateService {
     }
     const query = { chain: chain, network: network.toLowerCase(), address } as any;
     if (args.unspent) {
-      query.spentHeight = { $lt: 0 };
+      query.spentHeight = { $lt: SpentHeightIndicators.minimum };
     }
     return query;
   }
 
   streamAddressUtxos(params: CSP.StreamAddressUtxosParams) {
-    const { limit = 10, stream } = params;
+    const { stream, args } = params;
+    const { limit } = args;
     const query = this.getAddressQuery(params);
     Storage.apiStreamingFind(CoinModel, query, { limit }, stream);
   }
 
   async streamAddressTransactions(params: CSP.StreamAddressUtxosParams) {
-    const { limit = 10, stream } = params;
+    const { args, stream } = params;
+    const { limit = 10 } = args;
     const query = this.getAddressQuery(params);
-    const coins = await CoinModel.collection.find(query, { limit }).toArray();
-    const txids = coins.map(coin => coin.mintTxid);
-    const txQuery = { txid: { $in: txids } };
-    Storage.apiStreamingFind(TransactionModel, txQuery, {}, stream);
+    Storage.apiStreamingFind(CoinModel, query, { limit }, stream);
   }
 
   async getBalanceForAddress(params: CSP.GetBalanceForAddressParams) {
     const { chain, network, address } = params;
-    let query = { chain: chain, network, address };
+    let query = { chain, network, address };
     let balance = await CoinModel.getBalance({ query });
     return balance;
   }
@@ -81,8 +80,18 @@ export class InternalStateProvider implements CSP.IChainStateService {
 
   async getBlocks(params: CSP.GetBlockParams) {
     const { query, options } = this.getBlocksQuery(params);
-    let blocks = await BlockModel.collection.find(query, options).toArray();
-    return blocks.map(block => BlockModel._apiTransform(block, { object: true }));
+    let blocks = await BlockModel.collection.find<IBlock>(query, options).toArray();
+    const tip = await this.getLocalTip(params);
+    const tipHeight = tip ? tip.height : 0;
+    const blockTransform = (b: IBlock) => {
+      let confirmations = 0;
+      if (b.height && b.height >= 0) {
+        confirmations = tipHeight - b.height + 1;
+      }
+      const convertedBlock = BlockModel._apiTransform(b, { object: true }) as IBlock;
+      return { ...convertedBlock, confirmations };
+    };
+    return blocks.map(blockTransform);
   }
 
   private getBlocksQuery(params: CSP.GetBlockParams | CSP.StreamBlocksParams) {
@@ -136,7 +145,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
     return blocks[0];
   }
 
-  streamTransactions(params: CSP.StreamTransactionsParams) {
+  async streamTransactions(params: CSP.StreamTransactionsParams) {
     const { chain, network, stream, args } = params;
     let { limit = 100, blockHash, blockHeight } = args;
     if (!chain || !network) {
@@ -152,17 +161,38 @@ export class InternalStateProvider implements CSP.IChainStateService {
     if (blockHash) {
       query.blockHash = blockHash;
     }
-    Storage.apiStreamingFind(TransactionModel, query, { limit }, stream);
+    const tip = await this.getLocalTip(params);
+    const tipHeight = tip ? tip.height : 0;
+    return Storage.apiStreamingFind(TransactionModel, query, { limit }, stream, t => {
+      let confirmations = 0;
+      if (t.blockHeight && t.blockHeight >= 0) {
+        confirmations = tipHeight - t.blockHeight + 1;
+      }
+      const convertedTx = TransactionModel._apiTransform(t, { object: true }) as Partial<ITransaction>;
+      return JSON.stringify({ ...convertedTx, confirmations: confirmations });
+    });
   }
 
-  streamTransaction(params: CSP.StreamTransactionParams) {
-    let { chain, network, txId, stream } = params;
-    if (typeof txId !== 'string' || !chain || !network || !stream) {
+  async getTransaction(params: CSP.StreamTransactionParams) {
+    let { chain, network, txId } = params;
+    if (typeof txId !== 'string' || !chain || !network) {
       throw 'Missing required param';
     }
     network = network.toLowerCase();
     let query = { chain: chain, network, txid: txId };
-    Storage.apiStreamingFind(TransactionModel, query, { limit: 100 }, stream);
+    const tip = await this.getLocalTip(params);
+    const tipHeight = tip ? tip.height : 0;
+    const found = await TransactionModel.collection.findOne(query);
+    if (found) {
+      let confirmations = 0;
+      if (found.blockHeight && found.blockHeight >= 0) {
+        confirmations = tipHeight - found.blockHeight + 1;
+      }
+      const convertedTx = TransactionModel._apiTransform(found, { object: true }) as Partial<ITransaction>;
+      return { ...convertedTx, confirmations: confirmations };
+    } else {
+      return null;
+    }
   }
 
   async createWallet(params: CSP.CreateWalletParams) {
@@ -184,7 +214,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
       path,
       singleAddress
     };
-    await WalletModel.collection.insert(wallet);
+    await WalletModel.collection.insertOne(wallet);
     return wallet;
   }
 
@@ -203,7 +233,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
     const { chain, network, pubKey, stream } = params;
     const wallet = await WalletModel.collection.findOne({ pubKey });
     const walletId = wallet!._id;
-    const query = { chain, network, wallets: walletId, spentHeight: { $gte: 0 } };
+    const query = { chain, network, wallets: walletId, spentHeight: { $gte: SpentHeightIndicators.minimum } };
     const cursor = CoinModel.collection.find(query);
     const seen = {};
     const stringifyWallets = (wallets: Array<ObjectId>) => wallets.map(w => w.toHexString());
@@ -249,28 +279,38 @@ export class InternalStateProvider implements CSP.IChainStateService {
 
   async streamWalletTransactions(params: CSP.StreamWalletTransactionsParams) {
     let { chain, network, wallet, stream, args } = params;
-    let query: any = {
+    let finalQuery: any = {
       chain: chain,
       network,
       wallets: wallet._id
     };
+    let finalOptions: StreamingFindOptions<ITransaction> = {};
     if (args) {
       if (args.startBlock) {
-        query.blockHeight = { $gte: Number(args.startBlock) };
+        finalQuery.blockHeight = { $gte: Number(args.startBlock) };
       }
       if (args.endBlock) {
-        query.blockHeight = query.blockHeight || {};
-        query.blockHeight.$lte = Number(args.endBlock);
+        finalQuery.blockHeight = finalQuery.blockHeight || {};
+        finalQuery.blockHeight.$lte = Number(args.endBlock);
       }
       if (args.startDate) {
-        query.blockTimeNormalized = { $gte: new Date(args.startDate) };
+        const startDate = new Date(args.startDate);
+        if (startDate.getTime()) {
+          finalQuery.blockTimeNormalized = { $gte: new Date(args.startDate) };
+        }
       }
       if (args.endDate) {
-        query.blockTimeNormalized = query.blockTimeNormalized || {};
-        query.blockTimeNormalized.$lt = new Date(args.endDate);
+        const endDate = new Date(args.endDate);
+        if (endDate.getTime()) {
+          finalQuery.blockTimeNormalized = finalQuery.blockTimeNormalized || {};
+          finalQuery.blockTimeNormalized.$lt = new Date(args.endDate);
+        }
       }
+      //const { query, options } = Storage.getFindOptions(TransactionModel, args);
+      //finalQuery = Object.assign({}, finalQuery, query);
+      finalOptions = args;
     }
-    let transactionStream = TransactionModel.getTransactions({ query });
+    let transactionStream = TransactionModel.getTransactions({ query: finalQuery, options: finalOptions });
     let listTransactionsStream = new ListTransactionsStream(wallet);
     transactionStream.pipe(listTransactionsStream).pipe(stream);
   }
@@ -280,18 +320,33 @@ export class InternalStateProvider implements CSP.IChainStateService {
     return CoinModel.getBalance({ query });
   }
 
-  streamWalletUtxos(params: CSP.StreamWalletUtxosParams) {
+  async streamWalletUtxos(params: CSP.StreamWalletUtxosParams) {
     const { wallet, limit, args = {}, stream } = params;
     let query: any = { wallets: wallet._id };
     if (args.includeSpent !== 'true') {
-      query.spentHeight = { $lt: -1 };
+      query.spentHeight = { $lt: SpentHeightIndicators.pending };
     }
-    Storage.apiStreamingFind(CoinModel, query, { limit }, stream);
+    const tip = await this.getLocalTip(params);
+    const tipHeight = tip ? tip.height : 0;
+    const utxoTransform = (c: ICoin) => {
+      let confirmations = 0;
+      if (c.mintHeight && c.mintHeight >= 0) {
+        confirmations = tipHeight - c.mintHeight + 1;
+      }
+      const convertedCoin = CoinModel._apiTransform(c, { object: true }) as Partial<ICoin>;
+      return JSON.stringify({ ...convertedCoin, confirmations });
+    };
+
+    Storage.apiStreamingFind(CoinModel, query, { limit }, stream, utxoTransform);
   }
 
   async getFee(params: CSP.GetEstimateSmartFeeParams) {
     const { chain, network, target } = params;
-    return this.getRPC(chain, network).getEstimateSmartFee(Number(target));
+    if (chain === 'BCH') {
+      return this.getRPC(chain, network).getEstimateFee(Number(target));
+    } else {
+      return this.getRPC(chain, network).getEstimateSmartFee(Number(target));
+    }
   }
 
   async broadcastTransaction(params: CSP.BroadcastTransactionParams) {

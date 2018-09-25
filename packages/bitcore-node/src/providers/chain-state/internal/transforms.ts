@@ -40,9 +40,9 @@ export class ListTransactionsStream extends Transform {
       return total + output.value;
     }, 0);
     var fee = totalInputs - totalOutputs;
-    var sending = _.some(transaction.inputs, function(input) {
+    var sending = transaction.inputs.some(function(input) {
       var contains = false;
-      _.each(input.wallets, function(inputWallet) {
+      input.wallets.forEach(function(inputWallet) {
         if (inputWallet.equals(wallet)) {
           contains = true;
         }
@@ -51,18 +51,36 @@ export class ListTransactionsStream extends Transform {
     });
 
     if (sending) {
-      _.each(transaction.outputs, function(output) {
-        var contains = false;
-        _.each(output.wallets, function(outputWallet) {
+      transaction.outputs.forEach(function(output) {
+        var sendingToOurself = false;
+        output.wallets.forEach(function(outputWallet) {
           if (outputWallet.equals(wallet)) {
-            contains = true;
+            sendingToOurself = true;
           }
         });
-        if (!contains) {
+        if (!sendingToOurself) {
           self.push(
             JSON.stringify({
+              id: transaction._id,
               txid: transaction.txid,
+              fee: transaction.fee,
+              size: transaction.size,
               category: 'send',
+              satoshis: -output.value,
+              height: transaction.blockHeight,
+              address: output.address,
+              outputIndex: output.vout,
+              blockTime: transaction.blockTimeNormalized
+            }) + '\n'
+          );
+        } else {
+          self.push(
+            JSON.stringify({
+              id: transaction._id,
+              txid: transaction.txid,
+              fee: transaction.fee,
+              size: transaction.size,
+              category: 'move',
               satoshis: -output.value,
               height: transaction.blockHeight,
               address: output.address,
@@ -75,6 +93,7 @@ export class ListTransactionsStream extends Transform {
       if (fee > 0) {
         self.push(
           JSON.stringify({
+            id: transaction._id,
             txid: transaction.txid,
             category: 'fee',
             satoshis: -fee,
@@ -84,31 +103,32 @@ export class ListTransactionsStream extends Transform {
         );
       }
       return done();
-    }
-
-    _.each(transaction.outputs, function(output) {
-      var contains = false;
-      _.each(output.wallets, function(outputWallet) {
-        if (outputWallet.equals(wallet)) {
-          contains = true;
+    } else {
+      transaction.outputs.forEach(function(output) {
+        var weReceived = false;
+        output.wallets.forEach(function(outputWallet) {
+          if (outputWallet.equals(wallet)) {
+            weReceived = true;
+          }
+        });
+        if (weReceived) {
+          self.push(
+            JSON.stringify({
+              id: transaction._id,
+              txid: transaction.txid,
+              fee: transaction.fee,
+              size: transaction.size,
+              category: 'receive',
+              satoshis: output.value,
+              height: transaction.blockHeight,
+              address: output.address,
+              outputIndex: output.vout,
+              blockTime: transaction.blockTimeNormalized
+            }) + '\n'
+          );
         }
       });
-      if (contains) {
-        self.push(
-          JSON.stringify({
-            txid: transaction.txid,
-            category: 'receive',
-            satoshis: output.value,
-            height: transaction.blockHeight,
-            address: output.address,
-            outputIndex: output.vout,
-            blockTime: transaction.blockTimeNormalized
-          }) + '\n'
-        );
-      }
-    });
+    }
     done();
   }
 }
-
-module.exports = ListTransactionsStream;

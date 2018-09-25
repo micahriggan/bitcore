@@ -10,13 +10,14 @@ import { CurrencyProvider } from '../../providers/currency/currency';
 
   See https://angular.io/docs/ts/latest/guide/dependency-injection.html
   for more info on providers and Angular DI.
-*/
+ */
 
 export type ApiBlock = {
   height: number;
   nonce: number;
   bits: number;
   size: number;
+  confirmations: number;
   hash: string;
   merkleRoot: string;
   nextBlockHash: string;
@@ -58,11 +59,11 @@ export type AppBlock = {
 export class BlocksProvider {
   constructor(public http: Http, private api: ApiProvider, public currency: CurrencyProvider) {}
 
-  private toAppBlock(block: ApiBlock, bestHeight: number): AppBlock {
+  private toAppBlock(block: ApiBlock): AppBlock {
     let difficulty: number = 0x1d00ffff / block.bits;
     return {
       height: block.height,
-      confirmations: bestHeight - block.height,
+      confirmations: block.confirmations,
       nonce: block.nonce,
       size: block.size,
       virtualSize: block.size,
@@ -87,7 +88,7 @@ export class BlocksProvider {
   }
 
   public getCurrentHeight(): Observable<number> {
-    let heightUrl: string = this.api.apiPrefix + '/block/tip';
+    let heightUrl: string = this.api.getUrl() + '/block/tip';
     return this.http.get(heightUrl).map(blockResp => {
       const block: ApiBlock = blockResp.json();
       return block.height;
@@ -95,13 +96,11 @@ export class BlocksProvider {
   }
 
   public getBlocks(numBlocks: number = 10): Observable<{ blocks: Array<AppBlock> }> {
-    let url: string = this.api.apiPrefix + '/block?limit=' + numBlocks;
-    return this.getCurrentHeight().flatMap(height => {
-      return this.http.get(url).map(data => {
-        let blocks: Array<ApiBlock> = data.json();
-        let appBlocks: Array<AppBlock> = blocks.map(block => this.toAppBlock(block, height));
-        return { blocks: appBlocks };
-      });
+    let url: string = this.api.getUrl() + '/block?limit=' + numBlocks;
+    return this.http.get(url).map(data => {
+      let blocks: Array<ApiBlock> = data.json();
+      let appBlocks: Array<AppBlock> = blocks.map(block => this.toAppBlock(block));
+      return { blocks: appBlocks };
     });
   }
 
@@ -109,24 +108,20 @@ export class BlocksProvider {
    * example: http://localhost:8100/api/BTC/regtest/block?since=582&limit=100&paging=height&direction=1
    */
   public pageBlocks(since: number, numBlocks: number = 10): Observable<{ blocks: Array<AppBlock> }> {
-    let url: string = `${this.api.apiPrefix}/block?since=${since}&limit=${numBlocks}&paging=height&direction=-1`;
-    return this.getCurrentHeight().flatMap(height => {
-      return this.http.get(url).map(data => {
-        let blocks: Array<ApiBlock> = data.json();
-        let appBlocks: Array<AppBlock> = blocks.map(block => this.toAppBlock(block, height));
-        return { blocks: appBlocks };
-      });
+    let url: string = `${this.api.getUrl()}/block?since=${since}&limit=${numBlocks}&paging=height&direction=-1`;
+    return this.http.get(url).map(data => {
+      let blocks: Array<ApiBlock> = data.json();
+      let appBlocks: Array<AppBlock> = blocks.map(block => this.toAppBlock(block));
+      return { blocks: appBlocks };
     });
   }
 
   public getBlock(hash: string): Observable<{ block: AppBlock }> {
-    let url: string = this.api.apiPrefix + '/block/' + hash;
-    return this.getCurrentHeight().flatMap(height => {
-      return this.http.get(url).map(data => {
-        let block: ApiBlock = data.json();
-        let appBlock: AppBlock = this.toAppBlock(block, height);
-        return { block: appBlock };
-      });
+    let url: string = this.api.getUrl() + '/block/' + hash;
+    return this.http.get(url).map(data => {
+      let block: ApiBlock = data.json();
+      let appBlock: AppBlock = this.toAppBlock(block);
+      return { block: appBlock };
     });
   }
 }

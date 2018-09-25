@@ -4,17 +4,18 @@ import { TransformableModel } from '../types/TransformableModel';
 import logger from '../logger';
 import config from '../config';
 import { LoggifyClass } from '../decorators/Loggify';
-import { MongoClient, Db, FindOneOptions, Cursor } from 'mongodb';
+import { ObjectID } from 'bson';
+import { MongoClient, Db, Cursor } from 'mongodb';
+import { MongoBound } from '../models/base';
 import '../models';
 
 export type StreamingFindOptions<T> = Partial<{
   paging: keyof T;
   since: T[keyof T];
+  sort: any;
   direction: 1 | -1;
   limit: number;
-}> &
-  FindOneOptions;
-
+}>;
 @LoggifyClass
 export class StorageService {
   client?: MongoClient;
@@ -60,8 +61,9 @@ export class StorageService {
 
   stop() {}
 
-  validPagingProperty<T>(model: TransformableModel<T>, property: keyof T) {
-    return model.allowedPaging.some(prop => prop.key === property);
+  validPagingProperty<T>(model: TransformableModel<T>, property: keyof MongoBound<T>) {
+    const defaultCase = property === '_id';
+    return defaultCase || model.allowedPaging.some(prop => prop.key === property);
   }
 
   /**
@@ -86,6 +88,9 @@ export class StorageService {
             typecastedValue = new Date(oldValue) as any;
             break;
         }
+      // TODO: Micah check this!
+      } else if (modelKey == "_id") {
+        typecastedValue = new ObjectID(oldValue) as any;
       }
     }
     return typecastedValue;
@@ -116,23 +121,48 @@ export class StorageService {
       res.end();
     });
   }
+  getFindOptions<T>(model: TransformableModel<T>, originalOptions: StreamingFindOptions<T>) {
+    let options: StreamingFindOptions<T> = {};
+    let query: any = {}, since: any;
+    if ( originalOptions.paging &&
+      this.validPagingProperty(model, originalOptions.paging)
+    ) {
 
-  apiStreamingFind<T>(model: TransformableModel<T>, query: any, options: StreamingFindOptions<T>, res: Response) {
-    if (options.since !== undefined && options.paging && this.validPagingProperty(model, options.paging)) {
-      options.since = this.typecastForDb(model, options.paging, options.since);
-      if (options.direction && Number(options.direction) === 1) {
-        query[options.paging] = { $gt: options.since };
-        options.sort = { [options.paging]: 1 };
+
+      if (originalOptions.since !== undefined) {
+        since = this.typecastForDb(model, originalOptions.paging, originalOptions.since);
+      }
+
+
+      if (originalOptions.direction && Number(originalOptions.direction) === 1) {
+        if (since) {
+          query[originalOptions.paging] = { $gt: since };
+        }
+        options.sort = { [originalOptions.paging]: 1 };
       } else {
-        query[options.paging] = { $lt: options.since };
-        options.sort = { [options.paging]: -1 };
+        if (since) {
+          query[originalOptions.paging] = { $lt: since };
+        }
+        options.sort = { [originalOptions.paging]: -1 };
       }
     }
-    options.limit = Math.min(options.limit || 100, 1000);
-    let cursor = model.collection.find(query, options).stream({
-      transform: model._apiTransform
+    options.limit = Math.min(originalOptions.limit || 100, 1000);
+    return { query, options };
+  }
+
+  apiStreamingFind<T>(
+    model: TransformableModel<T>,
+    originalQuery: any,
+    originalOptions: StreamingFindOptions<T>,
+    res: Response,
+    transform?: (data: T) => string | Buffer
+  ) {
+    const { query, options } = this.getFindOptions(model, originalOptions);
+    const finalQuery = Object.assign({}, originalQuery, query);
+    let cursor = model.collection.find(finalQuery, options).stream({
+      transform: transform || model._apiTransform
     });
-    this.apiStream(cursor, res);
+    return this.apiStream(cursor, res);
   }
 }
 

@@ -5,16 +5,18 @@ import { IWallet } from '../../models/wallet';
 import { ChainNetwork } from '../../types/ChainNetwork';
 import { StreamingFindOptions } from '../../services/storage';
 import { MongoBound } from "../../models/base";
+import { ITransaction } from "../../models/transaction";
 export declare namespace CSP {
   export type StreamWalletTransactionsArgs = {
     startBlock: number;
     endBlock: number;
-    startDate: Date;
-    endDate: Date;
-  };
+    startDate: string;
+    endDate: string;
+  } & StreamingFindOptions<ITransaction>;
 
   export type StreamAddressUtxosArgs = {
     unspent: boolean;
+    limit: number;
   };
 
   export type GetBlockArgs = { limit: null | number };
@@ -59,7 +61,6 @@ export declare namespace CSP {
   export type StreamAddressUtxosParams = ChainNetwork & {
     address: string;
     stream: Response;
-    limit: number;
     args: StreamAddressUtxosArgs;
   };
 
@@ -69,7 +70,6 @@ export declare namespace CSP {
   };
   export type StreamTransactionParams = ChainNetwork & {
     txId: string;
-    stream: Response;
   };
   export type StreamWalletAddressesParams = ChainNetwork & {
     walletId: ObjectId;
@@ -111,7 +111,7 @@ export declare namespace CSP {
     streamAddressUtxos(params: StreamAddressUtxosParams): any;
     streamAddressTransactions(params: StreamAddressUtxosParams): any;
     streamTransactions(params: StreamTransactionsParams): any;
-    streamTransaction(params: StreamTransactionParams): any;
+    getTransaction(params: StreamTransactionParams): Promise<any>;
     streamWalletAddresses(params: StreamWalletAddressesParams): any;
     streamWalletTransactions(params: StreamWalletTransactionsParams): any;
     streamWalletUtxos(params: StreamWalletUtxosParams): any;

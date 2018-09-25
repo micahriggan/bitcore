@@ -2,7 +2,7 @@ import { expect } from 'chai';
 import { resetDatabase } from '../../helpers';
 import { BlockModel } from '../../../src/models/block';
 import { TransactionModel } from '../../../src/models/transaction';
-import { CoinModel } from '../../../src/models/coin';
+import { CoinModel, SpentHeightIndicators } from '../../../src/models/coin';
 import { TEST_BLOCK } from '../../data/test-block';
 import logger from '../../../src/logger';
 import { BitcoinAdapter, IBitcoinTransaction } from '../../../src/adapters/bitcoin';
@@ -15,7 +15,7 @@ describe('Block Model', function() {
 
   describe('addBlock', () => {
     it('should add a block when incoming block references previous block hash', async () => {
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 5,
@@ -29,7 +29,7 @@ describe('Block Model', function() {
         bits: parseInt('207fffff', 16),
         processed: true
       });
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 6,
@@ -43,7 +43,7 @@ describe('Block Model', function() {
         bits: parseInt('207fffff', 16),
         processed: true
       });
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 7,
@@ -57,7 +57,7 @@ describe('Block Model', function() {
         bits: parseInt('207fffff', 16),
         processed: true
       });
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 8,
@@ -132,7 +132,7 @@ describe('Block Model', function() {
 
   describe('handleReorg', () => {
     it("should not reorg if the incoming block's prevHash matches the block hash of the current highest block", async () => {
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 1335,
@@ -146,7 +146,7 @@ describe('Block Model', function() {
         bits: parseInt('207fffff', 16),
         processed: true
       });
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 1336,
@@ -160,7 +160,7 @@ describe('Block Model', function() {
         bits: parseInt('207fffff', 16),
         processed: true
       });
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 1337,
@@ -202,7 +202,7 @@ describe('Block Model', function() {
     });
     it('should successfully handle reorg', async () => {
       // setting the Block model
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 5,
@@ -216,7 +216,7 @@ describe('Block Model', function() {
         bits: parseInt('207fffff', 16),
         processed: true
       });
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 6,
@@ -230,7 +230,7 @@ describe('Block Model', function() {
         bits: parseInt('207fffff', 16),
         processed: true
       });
-      await BlockModel.collection.insert({
+      await BlockModel.collection.insertOne({
         chain: 'BTC',
         network: 'regtest',
         height: 7,
@@ -246,7 +246,7 @@ describe('Block Model', function() {
       });
 
       // setting TX model
-      await TransactionModel.collection.insert({
+      await TransactionModel.collection.insertOne({
         txid: 'a2262b524615b6d2f409784ceff898fd46bdde6a584269788c41f26ac4b4919e',
         chain: 'BTC',
         network: 'regtest',
@@ -257,7 +257,7 @@ describe('Block Model', function() {
         size: 145,
         blockHeight: 8
       });
-      await TransactionModel.collection.insert({
+      await TransactionModel.collection.insertOne({
         txid: '8a351fa9fc3fcd38066b4bf61a8b5f71f08aa224d7a86165557e6da7ee13a826',
         chain: 'BTC',
         network: 'regtest',
@@ -268,7 +268,7 @@ describe('Block Model', function() {
         size: 145,
         blockHeight: 8
       });
-      await TransactionModel.collection.insert({
+      await TransactionModel.collection.insertOne({
         txid: '8c29860888b915715878b21ce14707a17b43f6c51dfb62a1e736e35bc5d8093f',
         chain: 'BTC',
         network: 'regtest',
@@ -281,7 +281,7 @@ describe('Block Model', function() {
       });
 
       // setting the Coin model
-      await CoinModel.collection.insert({
+      await CoinModel.collection.insertOne({
         network: 'regtest',
         chain: 'BTC',
         mintTxid: 'a2262b524615b6d2f409784ceff898fd46bdde6a584269788c41f26ac4b4919e',
@@ -291,7 +291,7 @@ describe('Block Model', function() {
         value: 500.0,
         address: 'mkjB6LmjiNfJWgH4aP4v1GkFjRcQTfDSfj'
       });
-      await CoinModel.collection.insert({
+      await CoinModel.collection.insertOne({
         network: 'regtest',
         chain: 'BTC',
         mintTxid: '8a351fa9fc3fcd38066b4bf61a8b5f71f08aa224d7a86165557e6da7ee13a826',
@@ -301,7 +301,7 @@ describe('Block Model', function() {
         value: 500.0,
         address: 'mkjB6LmjiNfJWgH4aP4v1GkFjRcQTfDSfj'
       });
-      await CoinModel.collection.insert({
+      await CoinModel.collection.insertOne({
         network: 'regtest',
         chain: 'BTC',
         mintTxid: '8c29860888b915715878b21ce14707a17b43f6c51dfb62a1e736e35bc5d8093f',
@@ -389,7 +389,7 @@ describe('Block Model', function() {
           chain: 'BTC',
           network: 'regtest',
           spentTxid: null,
-          spentHeight: -1
+          spentHeight: SpentHeightIndicators.pending
         })
         .toArray();
       expect(unspentCoins.length).equal(1);
@@ -402,7 +402,7 @@ describe('Block Model', function() {
       expect(unspentCoins[0].value).to.equal(500.0);
       expect(unspentCoins[0].address).to.equal('mkjB6LmjiNfJWgH4aP4v1GkFjRcQTfDSfj');
       expect(unspentCoins[0].spentTxid).to.equal(null);
-      expect(unspentCoins[0].spentHeight).to.equal(-1);
+      expect(unspentCoins[0].spentHeight).to.equal(SpentHeightIndicators.pending);
     });
   });
 });
