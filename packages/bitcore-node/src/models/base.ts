@@ -1,5 +1,6 @@
 import { Storage } from '../services/storage';
-import {  ObjectID, Collection, MongoClient, Db } from 'mongodb';
+import { Collection, MongoClient, Db } from 'mongodb';
+import { ObjectID } from "bson";
 
 export type MongoBound<T> = T & {_id: ObjectID};
 export abstract class BaseModel<T> {
