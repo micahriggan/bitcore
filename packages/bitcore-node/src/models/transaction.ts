@@ -10,9 +10,13 @@ import logger from '../logger';
 import config from '../config';
 import { BulkWriteOpResultObject } from 'mongodb';
 import { StreamingFindOptions, Storage } from '../services/storage';
+import LRU = require('lru-cache');
 
 const Chain = require('../chain');
+const mintCache = new LRU<string, CoinAggregation>(100000);
 
+type CoinAggregation = { total: number; wallets: Array<ObjectID> };
+type CoinGroup = { [txid: string]: CoinAggregation };
 export type ITransaction = {
   txid: string;
   chain: string;
@@ -25,6 +29,7 @@ export type ITransaction = {
   fee: number;
   size: number;
   locktime: number;
+  value: number;
   raw: string;
   wallets: ObjectID[];
 };
@@ -67,7 +72,9 @@ export class Transaction extends BaseModel<ITransaction> {
     logger.debug('Spending Coins', spendOps.length);
     if (mintOps.length) {
       mintOps = partition(mintOps, mintOps.length / config.maxPoolSize);
-      mintOps = mintOps.map((mintBatch: Array<any>) => CoinModel.collection.bulkWrite(mintBatch, { ordered: false }));
+      mintOps = mintOps.map((mintBatch: Array<any>) => {
+        return CoinModel.collection.bulkWrite(mintBatch, { ordered: false });
+      });
     }
     if (spendOps.length) {
       spendOps = partition(spendOps, spendOps.length / config.maxPoolSize);
@@ -105,12 +112,11 @@ export class Transaction extends BaseModel<ITransaction> {
     mintOps?: Array<any>;
   }) {
     let { blockHash, blockTime, blockTimeNormalized, chain, height, network, txs } = params;
-    let txids = txs.map(tx => tx._hash);
-
+    let txids = txs.map(tx => tx._hash) as string[];
+    const neededTxids = txids.filter(txid => !mintCache.has(txid));
     const mintedPromise = CoinModel.collection.find({ mintTxid: { $in: txids }, chain, network }).toArray();
-    const spentPromise = CoinModel.collection.find({ spentTxid: { $in: txids }, chain, network }).toArray();
+    const spentPromise = CoinModel.collection.find({ spentTxid: { $in: neededTxids }, chain, network }).toArray();
     const [minted, spent] = await Promise.all([mintedPromise, spentPromise]);
-    type CoinGroup = { [txid: string]: { total: number; wallets: Array<ObjectID> } };
     const groupedMints = minted.reduce<CoinGroup>((agg, current) => {
       if (!agg[current.mintTxid]) {
         agg[current.mintTxid] = {
@@ -140,13 +146,14 @@ export class Transaction extends BaseModel<ITransaction> {
     let txOps = txs.map((tx, index) => {
       const txid = tx._hash!;
       const minted = groupedMints[txid] || {};
-      const spent = groupedSpends[txid] || {};
+      const cached = mintCache.has(txid) ? mintCache.get(txid) : undefined;
+      const spent = cached || groupedSpends[txid] || {};
       const mintedWallets = minted.wallets || [];
       const spentWallets = spent.wallets || [];
       const wallets = mintedWallets.concat(spentWallets);
       let fee = 0;
-      if (groupedMints[txid] && groupedSpends[txid]) {
-        fee = groupedSpends[txid].total - groupedMints[txid].total;
+      if (minted.total && spent.total) {
+        fee = spent.total - minted.total;
       }
 
       return {
@@ -161,6 +168,7 @@ export class Transaction extends BaseModel<ITransaction> {
               blockTime,
               blockTimeNormalized,
               coinbase: tx.isCoinbase(),
+              value: minted.total,
               fee,
               raw: tx.toBuffer().toString('hex'),
               size: tx.toBuffer().length,
@@ -262,6 +270,18 @@ export class Transaction extends BaseModel<ITransaction> {
           mintOp.updateOne.update.$set.wallets = transformedWallets;
           return mintOp;
         });
+      }
+    }
+
+    for (let mongoMintOp of mintOps) {
+      const mintOp = mongoMintOp.updateOne.update.$set;
+      let old = mintCache.get(mintOp.mintTxid);
+      if (old) {
+        const newValue = old.total + mintOp.value;
+        const newWallets = old.wallets.concat(mintOp.wallets);
+        mintCache.set(mintOp.mintTxid, { total: newValue, wallets: newWallets });
+      } else {
+        mintCache.set(mintOp.mintTxid, { total: mintOp.value, wallets: mintOp.wallets });
       }
     }
 
