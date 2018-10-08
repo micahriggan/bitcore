@@ -88,7 +88,6 @@ export class StorageService {
             typecastedValue = new Date(oldValue) as any;
             break;
         }
-        // TODO: Micah check this!
       } else if (modelKey == '_id') {
         typecastedValue = new ObjectID(oldValue) as any;
       }
@@ -122,6 +121,8 @@ export class StorageService {
     });
   }
   getFindOptions<T>(model: TransformableModel<T>, originalOptions: StreamingFindOptions<T>) {
+    let query: any = {};
+    let since: any = {};
     let options: StreamingFindOptions<T> = {};
     let query: any = {};
     let since: any;

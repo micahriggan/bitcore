@@ -17,7 +17,7 @@ describe('Coin Model', function() {
         value: 5000000000.0,
         address: 'n1ojJtS98D2VRLcTkaHH4YXLG4ytCyS7AL',
         script: Buffer.from(''),
-        wallets: [],
+        wallets: new Array<ObjectId>(),
         spentTxid: '',
         spentHeight: SpentHeightIndicators.unspent
       } as ICoin;
@@ -52,7 +52,7 @@ describe('Coin Model', function() {
         value: 5000000000.0,
         address: 'n1ojJtS98D2VRLcTkaHH4YXLG4ytCyS7AL',
         script: Buffer.from(''),
-        wallets: [],
+        wallets: new Array<ObjectId>(),
         spentTxid: '',
         spentHeight: SpentHeightIndicators.unspent
       } as ICoin;
