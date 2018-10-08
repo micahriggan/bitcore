@@ -70,12 +70,12 @@ export class Block extends BaseModel<IBlock> {
     txOps?: Array<any>;
     previousBlock?: any;
   }): Promise<BlockOp> {
-    const { block, chain, network, initialSyncComplete, forkHeight, parentChain } = params;
+    const { block, chain, network, initialSyncComplete, forkHeight, parentChain, transactions } = params;
     let { previousBlock } = params;
     const blockTime = block.time.getTime();
 
     if (!previousBlock) {
-      previousBlock = await this.collection.findOne({ hash: header.prevHash, chain, network });
+      previousBlock = await this.collection.findOne({ hash: block.previousBlockHash, chain, network });
     }
 
     const prevHash = previousBlock != null ? previousBlock.hash : '';
@@ -105,8 +105,8 @@ export class Block extends BaseModel<IBlock> {
     }
 
     const { mintOps, spendOps, txOps } = await TransactionModel.getBatchOps({
-      txs: block.transactions,
-      blockHash: header.hash,
+      txs: transactions,
+      blockHash: block.hash,
       blockTime: new Date(blockTime),
       blockTimeNormalized: new Date(blockTimeNormalized),
       height: height,
@@ -128,7 +128,7 @@ export class Block extends BaseModel<IBlock> {
           hash: block.hash,
           height,
           version: block.version,
-          previousBlockHash: header.prevHash,
+          previousBlockHash: block.previousBlockHash,
           merkleRoot: block.merkleRoot,
           time: new Date(blockTime),
           timeNormalized: new Date(blockTimeNormalized),
@@ -143,7 +143,7 @@ export class Block extends BaseModel<IBlock> {
       },
       previousBlock: {
         updateOne: { chain, network, hash: prevHash },
-        $set: { nextBlockHash: header.hash }
+        $set: { nextBlockHash: block.hash }
       },
       mintOps,
       spendOps,
@@ -178,7 +178,6 @@ export class Block extends BaseModel<IBlock> {
   }
 
   async processBlockOp(params: {
-    block: any;
     parentChain?: string;
     forkHeight?: number;
     initialSyncComplete: boolean;
@@ -186,16 +185,17 @@ export class Block extends BaseModel<IBlock> {
     network: string;
     blockOps: BlockOp;
   }) {
-    const { block, chain, network } = params;
-    const header = block.header.toObject();
-
+    const { chain, network, blockOps } = params;
+    const block = blockOps.blockOp.$set;
+    const hash = block.hash || '';
+    const prevHash = block.previousBlockHash || '';
+    const header = { hash, prevHash };
     const reorg = await this.handleReorg({ header, chain, network });
 
     if (reorg) {
       return Promise.reject('reorg');
     }
 
-    const { blockOps } = params;
     const { mintOps, spendOps, blockOp, txOps, previousBlock } = blockOps;
     await this.collection.update({ hash: header.hash, chain, network }, blockOp, { upsert: true });
 
@@ -210,7 +210,8 @@ export class Block extends BaseModel<IBlock> {
   }
 
   async addBlock(params: {
-    block: any;
+    block: Bucket<IBlock>;
+    transactions: Array<Bucket<VerboseTransaction>>;
     parentChain?: string;
     forkHeight?: number;
     initialSyncComplete: boolean;
@@ -218,7 +219,15 @@ export class Block extends BaseModel<IBlock> {
     network: string;
   }) {
     const blockOps = await this.getBlockOp(params);
-    return this.processBlockOp({ ...params, blockOps });
+    const blockOpArgs = {
+      parentChain: params.parentChain,
+      forkHeight: params.forkHeight,
+      initialSyncComplete: params.initialSyncComplete,
+      chain: params.chain,
+      network: params.network,
+      blockOps
+    };
+    return this.processBlockOp(blockOpArgs);
   }
 
   getPoolInfo(coinbase: string) {

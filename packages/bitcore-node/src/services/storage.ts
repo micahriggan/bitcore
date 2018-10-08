@@ -124,8 +124,6 @@ export class StorageService {
     let query: any = {};
     let since: any = {};
     let options: StreamingFindOptions<T> = {};
-    let query: any = {};
-    let since: any;
     if (originalOptions.sort) {
       options.sort = originalOptions.sort;
     }

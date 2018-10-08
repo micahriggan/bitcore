@@ -8,8 +8,8 @@ import logger from '../logger';
 import config from '../config';
 import { ObjectId, BulkWriteOpResultObject } from 'mongodb';
 import { StreamingFindOptions, Storage } from '../services/storage';
-import { VerboseTransaction } from "../services/p2p";
-import { Bucket } from "../types/namespaces/ChainAdapter";
+import { VerboseTransaction } from '../services/p2p';
+import { Bucket } from '../types/namespaces/ChainAdapter';
 
 export type ITransaction = {
   txid: string;
@@ -25,7 +25,7 @@ export type ITransaction = {
 };
 
 type BatchImportParams = {
-  txs: Array<Bitcoin.Transaction>;
+  txs: Array<Bucket<VerboseTransaction>>;
   height: number;
   mempoolTime?: Date;
   blockTime?: Date;
@@ -241,7 +241,7 @@ export class Transaction extends BaseModel<ITransaction> {
 
       return {
         updateOne: {
-          filter: { txid: tx._hash!, chain, network },
+          filter: { txid: tx.txid, chain, network },
           update: {
             $set: {
               chain,
@@ -264,7 +264,7 @@ export class Transaction extends BaseModel<ITransaction> {
   }
 
   getMintOps(params: BatchImportQueryBuilderParams): Array<CoinMintOp> {
-    txs: Array<VerboseTransaction>;
+    const { txs, parentChainCoins, chain, network, height } = params;
     let mintOps = new Array<CoinMintOp>();
 
     for (let tx of txs) {
@@ -348,7 +348,7 @@ export class Transaction extends BaseModel<ITransaction> {
       if (tx.bucket.coinbase) {
         continue;
       }
-      let txid = tx.blockHash;
+      let txid = tx.txid;
       for (let input of tx.inputs) {
         let inputObj = input;
         let sameBlockSpend = mintMap[inputObj.mintTxid] && mintMap[inputObj.mintTxid][inputObj.mintIndex];

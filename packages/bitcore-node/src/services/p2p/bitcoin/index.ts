@@ -1,8 +1,8 @@
 import logger from '../../../logger';
 import { EventEmitter } from 'events';
-import { BlockModel, IBlock } from '../../../models/block';
+import { BlockModel, IBlock, BlockOp } from '../../../models/block';
 import { ChainStateProvider } from '../../../providers/chain-state';
-import { TransactionModel } from '../../../models/transaction';
+import { TransactionModel, CoinMintOp, CoinSpendOp, TxOp } from '../../../models/transaction';
 import { Bitcoin } from '../../../types/namespaces/Bitcoin';
 import { StateModel } from '../../../models/state';
 import { Chain } from '../../../chain';
@@ -104,15 +104,15 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
         this.events.emit(hash, message.block);
         if (!this.syncing) {
           await this.blockLock;
-          this.blockLock = new Promise(async (resolve) => {
+          this.blockLock = new Promise(async resolve => {
             try {
               await this.processBlock(block);
               this.events.emit('block', message.block);
             } catch (err) {
               logger.error(`Error syncing ${chain} ${network}`, err);
               this.sync();
-          } finally {
-            resolve()
+            } finally {
+              resolve();
             }
           });
         }
@@ -200,7 +200,7 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
     return best;
   }
 
-  async getBlockOperations(block, mintOps, spendOps, txOps, previousBlock) {
+  async getBlockOperations(block, transactions, mintOps, spendOps, txOps, previousBlock) {
     return BlockModel.getBlockOp({
       chain: this.chain,
       network: this.network,
@@ -208,6 +208,7 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
       parentChain: this.chainConfig.parentChain,
       initialSyncComplete: this.initialSyncComplete,
       block,
+      transactions,
       mintOps,
       spendOps,
       txOps,
@@ -215,6 +216,7 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
     });
   }
 
+  processBlock(block) {
     return new Promise(async (resolve, reject) => {
       const convertedBlock = this.convertBlock(block);
       const convertedTransactions = block.transactions.map(tx => this.convertTransaction(tx, convertedBlock));
@@ -248,10 +250,10 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
     return this.adapter.convertTx({ chain: this.chain, network: this.network, tx, block });
   }
 
-  async processTransaction(transaction: Bitcoin.Transaction): Promise<any> {
+  async processTransaction(transaction: Bitcoin.Transaction) {
     const now = new Date();
     const convertedTx = this.convertTransaction(transaction);
-    TransactionModel.batchImport({
+    return TransactionModel.batchImport({
       chain: this.chain,
       network: this.network,
       txs: [convertedTx],
@@ -305,8 +307,17 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
       logger.info(`Syncing ${headers.length} blocks for ${chain} ${network}`);
       for (const header of headers) {
         try {
-          const block = await this.getBlock(header.hash);
-          const blockUpdates = await this.getBlockOperations(block, mintBatch, spendBatch, txBatch, prevBlock);
+          const bitcoinBlock = await this.getBlock(header.hash);
+          const block = this.convertBlock(bitcoinBlock);
+          const transactions = bitcoinBlock.transactions.map(tx => this.convertTransaction(tx, block));
+          const blockUpdates = await this.getBlockOperations(
+            block,
+            transactions,
+            mintBatch,
+            spendBatch,
+            txBatch,
+            prevBlock
+          );
           blockBatch = blockBatch.concat(blockUpdates);
           mintBatch = mintBatch.concat(blockUpdates.mintOps);
           spendBatch = spendBatch.concat(blockUpdates.spendOps);
@@ -334,10 +345,10 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
               await prevPromise;
               prevPromise = BlockModel.processBlockOps(blockBatch);
             }
-            blockBatch = new Array<any>();
-            mintBatch = new Array<any>();
-            spendBatch = new Array<any>();
-            txBatch = new Array<any>();
+            blockBatch = new Array<BlockOp>();
+            mintBatch = new Array<CoinMintOp>();
+            spendBatch = new Array<CoinSpendOp>();
+            txBatch = new Array<TxOp>();
           }
 
           currentHeight++;
@@ -356,10 +367,10 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
         });
         if (prevPromise) await prevPromise;
         await BlockModel.processBlockOps(blockBatch);
-        blockBatch = new Array<any>();
-        mintBatch = new Array<any>();
-        spendBatch = new Array<any>();
-        txBatch = new Array<any>();
+        blockBatch = new Array<BlockOp>();
+        mintBatch = new Array<CoinMintOp>();
+        spendBatch = new Array<CoinSpendOp>();
+        txBatch = new Array<TxOp>();
       }
     }
     logger.info(`${chain}:${network} up to date.`);
