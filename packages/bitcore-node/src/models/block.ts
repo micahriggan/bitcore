@@ -1,4 +1,4 @@
-import { CoinModel, SpentHeightIndicators } from './coin';
+import { CoinModel, SpentHeightIndicators, ICoin } from './coin';
 import { TransactionModel } from './transaction';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
