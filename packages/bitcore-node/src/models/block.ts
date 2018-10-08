@@ -1,11 +1,10 @@
-import { CoinModel, ICoin } from './coin';
+import { CoinModel, SpentHeightIndicators } from './coin';
 import { TransactionModel } from './transaction';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
 import { Bitcoin } from '../types/namespaces/Bitcoin';
-import { BaseModel } from './base';
+import { BaseModel, MongoBound } from './base';
 import logger from '../logger';
-import { ChainStateProvider } from '../providers/chain-state';
 
 export type IBlock = {
   chain: string;
@@ -205,7 +204,7 @@ export class Block extends BaseModel<IBlock> {
 
     await TransactionModel.processBatches({ mintOps, spendOps, txOps });
 
-    return this.collection.update({ hash: header.hash, chain, network }, { $set: { processed: true } });
+    return this.collection.updateOne({ hash: header.hash, chain, network }, { $set: { processed: true } });
   }
 
   async addBlock(params: {
@@ -226,31 +225,47 @@ export class Block extends BaseModel<IBlock> {
     return coinbase;
   }
 
+  getLocalTip({ chain, network }) {
+    return BlockModel.collection.findOne({ chain, network, processed: true }, { sort: { height: -1 } });
+  }
+
   async handleReorg(params: { header?: Bitcoin.Block.HeaderObj; chain: string; network: string }): Promise<boolean> {
     const { header, chain, network } = params;
-    const localTip = await ChainStateProvider.getLocalTip(params);
+    let localTip = await this.getLocalTip(params);
     if (header && localTip && localTip.hash === header.prevHash) {
       return false;
     }
     if (!localTip || localTip.height === 0) {
       return false;
     }
-    logger.info(`Resetting tip to ${localTip.previousBlockHash}`, { chain, network });
-    await this.collection.remove({ chain, network, height: { $gte: localTip.height } });
-    await TransactionModel.collection.remove({ chain, network, blockHeight: { $gte: localTip.height } });
-    await CoinModel.collection.remove({ chain, network, mintHeight: { $gte: localTip.height } });
-    await CoinModel.collection.update(
+    if (header) {
+      const prevBlock = await this.collection.findOne({ chain, network, hash: header.prevHash });
+      if (prevBlock) {
+        localTip = prevBlock;
+      } else {
+        logger.error(`Previous block isn't in the DB need to roll back until we have a block in common`);
+      }
+    }
+    logger.info(`Resetting tip to ${localTip.height}`, { chain, network });
+    const reorgOps = [
+      this.collection.deleteMany({ chain, network, height: { $gte: localTip.height } }),
+      TransactionModel.collection.deleteMany({ chain, network, blockHeight: { $gte: localTip.height } }),
+      CoinModel.collection.deleteMany({ chain, network, mintHeight: { $gte: localTip.height } })
+    ];
+    await Promise.all(reorgOps);
+
+    await CoinModel.collection.updateMany(
       { chain, network, spentHeight: { $gte: localTip.height } },
-      { $set: { spentTxid: null, spentHeight: -1 } },
-      { multi: true }
+      { $set: { spentTxid: null, spentHeight: SpentHeightIndicators.pending } }
     );
 
     logger.debug('Removed data from above blockHeight: ', localTip.height);
     return true;
   }
 
-  _apiTransform(block: IBlock, options: TransformOptions): any {
+  _apiTransform(block: Partial<MongoBound<IBlock>>, options: TransformOptions): any {
     const transform = {
+      _id: block._id,
       chain: block.chain,
       network: block.network,
       hash: block.hash,

@@ -20,16 +20,21 @@ export class RPC {
         },
         json: true
       },
-      function(err, res) {
+      (err, res) => {
         if (err) {
           return callback(err);
-        }
-        if (res) {
-          const { body } = res;
-          if (res.body && res.body.error) {
-            return callback(body.error);
+        } else if (res) {
+          if (res.body) {
+            if (res.body.error) {
+              return callback(res.body.error);
+            } else if (res.body.result) {
+              return callback(null, res.body && res.body.result);
+            } else {
+              return callback({ msg: 'No error or body found', body: res.body });
+            }
           }
-          callback(null, body && body.result);
+        } else {
+          return callback('No response or error returned by rpc call');
         }
       }
     );
@@ -47,11 +52,11 @@ export class RPC {
   }
 
   getChainTip(callback: CallbackType) {
-    this.callMethod('getchaintips', [], function(err, result) {
+    this.callMethod('getchaintips', [], (err, result) => {
       if (err) {
         return callback(err);
       }
-      callback(null, result[0]);
+      return callback(null, result[0]);
     });
   }
 
@@ -72,28 +77,25 @@ export class RPC {
   }
 
   getBlockByHeight(height: number, callback: CallbackType) {
-    var self = this;
-    self.getBlockHash(height, function(err, hash) {
+    this.getBlockHash(height, (err, hash) => {
       if (err) {
         return callback(err);
       }
-      self.getBlock(hash, false, callback);
+      this.getBlock(hash, false, callback);
     });
   }
 
   getTransaction(txid: string, callback: CallbackType) {
-    var self = this;
-    self.callMethod('getrawtransaction', [txid, true], function(err, result) {
+    this.callMethod('getrawtransaction', [txid, true], (err, result) => {
       if (err) {
         return callback(err);
       }
-      callback(null, result);
+      return callback(null, result);
     });
   }
 
   sendTransaction(rawTx: string, callback: CallbackType) {
-    var self = this;
-    self.callMethod('sendrawtransaction', [rawTx], callback);
+    this.callMethod('sendrawtransaction', [rawTx], callback);
   }
 
   decodeScript(hex: string, callback: CallbackType) {
@@ -107,6 +109,12 @@ export class RPC {
   async getEstimateSmartFee(target: number) {
     return this.asyncCall('estimatesmartfee', [target]);
   }
+
+
+  async getEstimateFee(target: number) {
+    return this.asyncCall('estimatefee', [target]);
+  }
+
 }
 
 @LoggifyClass
@@ -175,6 +183,7 @@ export type RPCTransaction = {
   hex: string;
   txid: string;
   hash: string;
+  strippedsize: number;
   size: number;
   vsize: number;
   version: number;

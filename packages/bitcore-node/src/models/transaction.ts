@@ -1,13 +1,14 @@
-import { CoinModel, ICoin } from './coin';
+import { CoinModel, ICoin, SpentHeightIndicators } from './coin';
 import { WalletAddressModel, IWalletAddress } from './walletAddress';
 import { partition } from '../utils/partition';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
 import { Bitcoin } from '../types/namespaces/Bitcoin';
-import { BaseModel } from './base';
+import { BaseModel, MongoBound } from './base';
 import logger from '../logger';
 import config from '../config';
 import { ObjectId } from 'mongodb';
+import { StreamingFindOptions, Storage } from '../services/storage';
 
 const Chain = require('../chain');
 
@@ -157,7 +158,9 @@ export class Transaction extends BaseModel<ITransaction> {
     if (mintOps && txOps.length) {
       logger.debug('Writing Transactions', txOps.length);
       txOps = partition(txOps, txOps.length / config.maxPoolSize);
-      txOps = txOps.map(txBatch => TransactionModel.collection.bulkWrite(txBatch, { ordered: false }));
+      txs = txBatches.map((txBatch: Array<any>) =>
+        this.collection.bulkWrite(txBatch, { ordered: false, j: false, w: 0 })
+      );
     }
 
     await Promise.all(txOps);
@@ -204,7 +207,6 @@ export class Transaction extends BaseModel<ITransaction> {
         .toArray();
     }
     const txWallets = mintWallets.concat(spentWallets);
-
     let txOps = txs.map((tx, index) => {
       let wallets = new Array<ObjectId>();
       if (initialSyncComplete) {
@@ -269,7 +271,13 @@ export class Transaction extends BaseModel<ITransaction> {
 
         mintOps.push({
           updateOne: {
-            filter: { mintTxid: txid, mintIndex: index, spentHeight: { $lt: 0 }, chain, network },
+            filter: {
+              mintTxid: txid,
+              mintIndex: index,
+              spentHeight: { $lt: SpentHeightIndicators.minimum },
+              chain,
+              network
+            },
             update: {
               $set: {
                 chain,
@@ -279,7 +287,7 @@ export class Transaction extends BaseModel<ITransaction> {
                 value: output.satoshis,
                 address,
                 script: scriptBuffer,
-                spentHeight: -2,
+                spentHeight: SpentHeightIndicators.unspent,
                 wallets: new Array<ObjectId>()
               }
             },
@@ -350,7 +358,7 @@ export class Transaction extends BaseModel<ITransaction> {
             filter: {
               mintTxid: inputObj.prevTxId,
               mintIndex: inputObj.outputIndex,
-              spentHeight: { $lt: 0 },
+              spentHeight: { $lt: SpentHeightIndicators.minimum },
               chain,
               network
             },
@@ -367,13 +375,16 @@ export class Transaction extends BaseModel<ITransaction> {
     return spendOps;
   }
 
-  getTransactions(params: { query: any }) {
-    let query = params.query;
-    return this.collection.find(query).addCursorFlag('noCursorTimeout', true);
+  getTransactions(params: { query: any; options: StreamingFindOptions<ITransaction> }) {
+    let originalQuery = params.query;
+    const { query, options } = Storage.getFindOptions(this, params.options);
+    const finalQuery = Object.assign({}, originalQuery, query);
+    return this.collection.find(finalQuery, options).addCursorFlag('noCursorTimeout', true);
   }
 
-  _apiTransform(tx: ITransaction, options: TransformOptions) {
+  _apiTransform(tx: Partial<MongoBound<ITransaction>>, options: TransformOptions): Partial<ITransaction> | string {
     let transform = {
+      _id: tx._id,
       txid: tx.txid,
       network: tx.network,
       blockHeight: tx.blockHeight,

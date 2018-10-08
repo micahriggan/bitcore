@@ -6,6 +6,7 @@ import { ChainStateProvider } from '../providers/chain-state';
 import { TransactionModel } from '../models/transaction';
 import { Bitcoin } from '../types/namespaces/Bitcoin';
 import { StateModel } from '../models/state';
+import { SpentHeightIndicators } from '../models/coin';
 const Chain = require('../chain');
 const LRU = require('lru-cache');
 
@@ -21,6 +22,7 @@ export class P2pService {
   private pool: any;
   private invCache: any;
   private initialSyncComplete: boolean;
+  private blockProcessLock = Promise.resolve();
   constructor(params) {
     const { chain, network, chainConfig } = params;
     this.chain = chain;
@@ -97,13 +99,18 @@ export class P2pService {
         this.invCache.set(hash);
         this.events.emit(hash, message.block);
         if (!this.syncing) {
-          try {
-            await this.processBlock(block);
-            this.events.emit('block', message.block);
-          } catch (err) {
-            logger.error(`Error syncing ${chain} ${network}`, err);
-            await this.sync();
-          }
+          await this.blockProcessLock;
+          this.blockProcessLock = new Promise(async resolve => {
+            try {
+              await this.processBlock(block);
+              this.events.emit('block', message.block);
+            } catch (err) {
+              logger.error(`Error syncing ${chain} ${network}`, err);
+              this.sync();
+            } finally {
+              resolve();
+            }
+          });
         }
       }
     });
@@ -250,7 +257,7 @@ export class P2pService {
       chain: this.chain,
       network: this.network,
       txs: [tx],
-      height: -1,
+      height: SpentHeightIndicators.pending,
       mempoolTime: now,
       blockTime: now,
       blockTimeNormalized: now,

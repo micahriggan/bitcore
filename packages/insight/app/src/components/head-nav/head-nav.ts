@@ -9,9 +9,9 @@ import { PopoverController } from 'ionic-angular';
 import { ToastController } from 'ionic-angular';
 import { DenominationComponent } from '../denomination/denomination';
 import { PriceProvider } from '../../providers/price/price';
+import { App } from 'ionic-angular/components/app/app';
 
-/**
- * Generated class for the HeadNavComponent component.
+/** * Generated class for the HeadNavComponent component.
  *
  * See https://angular.io/docs/ts/latest/api/core/index/ComponentMetadata-class.html
  * for more info on Angular Components.
@@ -29,7 +29,8 @@ export class HeadNavComponent {
   constructor(
     private navCtrl: NavController,
     private http: Http,
-    private api: ApiProvider,
+    private apiProvider: ApiProvider,
+    public app: App,
     public currency: CurrencyProvider,
     public price: PriceProvider,
     public actionSheetCtrl: ActionSheetController,
@@ -39,55 +40,59 @@ export class HeadNavComponent {
 
   public search(): void {
     this.showSearch = false;
-    let apiPrefix: string = this.api.apiPrefix;
+    let apiPrefix: string = this.apiProvider.getUrl();
 
-    this.http.get(apiPrefix + 'block/' + this.q).subscribe(
-      function(data: any): void {
+    this.http.get(apiPrefix + '/block/' + this.q).subscribe(
+      (data: any): void => {
         this.resetSearch();
         console.log('block', data);
         let parsedData: any = JSON.parse(data._body);
         this.navCtrl.push('block-detail', {
-          selectedCurrency: this.currency.selectedCurrency,
+          chain: this.apiProvider.selectedChain,
+          network: this.apiProvider.selectedNetwork,
           blockHash: parsedData.hash
         });
-      }.bind(this),
+      },
       () => {
-        this.http.get(apiPrefix + 'tx/' + this.q).subscribe(
+        this.http.get(apiPrefix + '/tx/' + this.q).subscribe(
           function(data: any): void {
             this.resetSearch();
             console.log('tx', data);
             let parsedData: any = JSON.parse(data._body);
             this.navCtrl.push('transaction', {
-              selectedCurrency: this.currency.selectedCurrency,
-              txId: parsedData.txid
+              chain: this.apiProvider.selectedChain,
+              network: this.apiProvider.selectedNetwork,
+              txId: parsedData[0].txid
             });
-          }.bind(this),
+          },
           () => {
-            this.http.get(apiPrefix + 'addr/' + this.q).subscribe(
-              function(data: any): void {
+            this.http.get(apiPrefix + '/address/' + this.q).subscribe(
+              (data: any): void => {
                 this.resetSearch();
                 console.log('addr', data);
                 let parsedData: any = JSON.parse(data._body);
                 this.navCtrl.push('address', {
-                  selectedCurrency: this.currency.selectedCurrency,
-                  addrStr: parsedData.addrStr
+                  chain: this.apiProvider.selectedChain,
+                  network: this.apiProvider.selectedNetwork,
+                  addrStr: parsedData[0].address
                 });
-              }.bind(this),
+              },
               () => {
                 this.http.get(apiPrefix + 'block-index/' + this.q).subscribe(
-                  function(data: any): void {
+                  (data: any): void => {
                     this.resetSearch();
                     console.log('height', data);
                     let parsedData: any = JSON.parse(data._body);
                     this.navCtrl.push('block-detail', {
-                      selectedCurrency: this.currency.selectedCurrency,
+                      chain: this.apiProvider.selectedChain,
+                      network: this.apiProvider.selectedNetwork,
                       blockHash: parsedData.blockHash
                     });
-                  }.bind(this),
-                  function(): void {
+                  },
+                  () => {
                     this.loading = false;
                     this.reportBadQuery();
-                  }.bind(this)
+                  }
                 );
               }
             );

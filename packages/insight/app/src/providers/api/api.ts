@@ -2,7 +2,6 @@ import { Injectable } from '@angular/core';
 import { Http } from '@angular/http';
 import 'rxjs/add/operator/map';
 import { DefaultProvider } from '../../providers/default/default';
-import { CurrencyProvider } from '../../providers/currency/currency';
 
 /*
   Generated class for the ApiProvider provider.
@@ -12,12 +11,24 @@ import { CurrencyProvider } from '../../providers/currency/currency';
 */
 @Injectable()
 export class ApiProvider {
-  public apiPrefix: string;
+  public selectedChain: string = 'BTC';
+  public selectedNetwork: string = 'mainnet';
+  constructor(public http: Http, private defaults: DefaultProvider) {}
 
-  constructor(public http: Http, private defaults: DefaultProvider, public currency: CurrencyProvider) {
-    const prefix: string = defaults.getDefault('%API_PREFIX%');
-    const chain: string = this.currency.selectedCurrency.toUpperCase();
-    const network: string = this.defaults.getDefault('%NETWORK%');
-    this.apiPrefix = `${prefix}/${chain}/${network}`;
+  public getUrlPrefix(): string {
+    const prefix: string = this.defaults.getDefault('%API_PREFIX%');
+    return prefix;
+  }
+  public getUrl(): string {
+    const prefix: string = this.defaults.getDefault('%API_PREFIX%');
+    const chain: string = this.selectedChain;
+    const network: string = this.selectedNetwork;
+    const apiPrefix: string = `${prefix}/${chain}/${network}`;
+    return apiPrefix;
+  }
+
+  public changeChain(chain: string, network?: string): void {
+    this.selectedChain = chain;
+    this.selectedNetwork = network;
   }
 }

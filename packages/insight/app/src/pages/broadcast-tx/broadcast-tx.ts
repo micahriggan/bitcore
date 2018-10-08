@@ -4,16 +4,16 @@ import { ToastController } from 'ionic-angular';
 import { FormBuilder, FormGroup, Validators } from '@angular/forms';
 import { Http } from '@angular/http';
 import { ApiProvider } from '../../providers/api/api';
+import { NavParams } from 'ionic-angular/navigation/nav-params';
 
 @IonicPage({
-  segment: ':selectedCurrency/broadcast-tx'
+  segment: ':chain/:network/broadcast-tx'
 })
 @Component({
   selector: 'page-broadcast-tx',
   templateUrl: 'broadcast-tx.html'
 })
 export class BroadcastTxPage {
-
   public title: string;
   public transaction: string;
   public txForm: FormGroup;
@@ -23,9 +23,14 @@ export class BroadcastTxPage {
   constructor(
     private toastCtrl: ToastController,
     public formBuilder: FormBuilder,
+    public navParams: NavParams,
     private http: Http,
-    private api: ApiProvider,
+    private apiProvider: ApiProvider
   ) {
+    const chain: string = navParams.get('chain');
+    const network: string = navParams.get('network');
+    this.apiProvider.changeChain(chain, network);
+
     this.title = 'Broadcast Transaction';
     this.txForm = formBuilder.group({
       rawData: ['', Validators.pattern(/^[0-9A-Fa-f]+$/)]
@@ -38,8 +43,7 @@ export class BroadcastTxPage {
     };
     this.status = 'loading';
 
-    this.http.post(this.api.apiPrefix + 'tx/send', postData)
-    .subscribe(
+    this.http.post(this.apiProvider.getUrl() + 'tx/send', postData).subscribe(
       response => {
         this.presentToast(true, response);
       },
@@ -50,7 +54,9 @@ export class BroadcastTxPage {
   }
 
   private presentToast(success: boolean, response: any): void {
-    let message: string = (success) ? 'Transaction successfully broadcast. Trasaction id: ' + JSON.parse(response._body).txid : 'An error occurred: ' + response._body;
+    let message: string = success
+      ? 'Transaction successfully broadcast. Trasaction id: ' + JSON.parse(response._body).txid
+      : 'An error occurred: ' + response._body;
     if (this.toast) {
       this.toast.dismiss();
     }
