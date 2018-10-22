@@ -91,7 +91,6 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
     this.pool.on('peerblock', async (peer, message) => {
       const { block } = message;
       const { hash } = block;
-      const { chain, network } = this;
       logger.debug('peer block received', {
         peer: `${peer.host}:${peer.port}`,
         chain: this.chain,
@@ -102,20 +101,8 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
       if (!this.invCache.get(hash)) {
         this.invCache.set(hash);
         this.events.emit(hash, message.block);
-        if (!this.syncing) {
-          await this.blockLock;
-          this.blockLock = new Promise(async resolve => {
-            try {
-              await this.processBlock(block);
-              this.events.emit('block', message.block);
-            } catch (err) {
-              logger.error(`Error syncing ${chain} ${network}`, err);
-              this.sync();
-            } finally {
-              resolve();
-            }
-          });
-        }
+        this.events.emit('block', message.block);
+        this.sync();
       }
     });
 
