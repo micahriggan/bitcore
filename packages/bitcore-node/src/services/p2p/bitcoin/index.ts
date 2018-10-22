@@ -19,7 +19,6 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
   private bitcoreP2p: any;
   private chainConfig: any;
   private events: EventEmitter;
-  private blockLock = Promise.resolve();
   private syncing: boolean;
   private messages: any;
   private pool: any;

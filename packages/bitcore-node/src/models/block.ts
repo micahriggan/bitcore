@@ -1,5 +1,5 @@
 import { CoinModel, SpentHeightIndicators, ICoin } from './coin';
-import { TransactionModel } from './transaction';
+import { TransactionModel, CoinMintOp, CoinSpendOp, TxOp } from './transaction';
 import { TransformOptions } from '../types/TransformOptions';
 import { LoggifyClass } from '../decorators/Loggify';
 import { BaseModel, MongoBound } from './base';
@@ -65,9 +65,9 @@ export class Block extends BaseModel<IBlock> {
     initialSyncComplete: boolean;
     chain: string;
     network: string;
-    mintOps?: Array<any>;
-    spendOps?: Array<any>;
-    txOps?: Array<any>;
+    mintOps?: Array<CoinMintOp>;
+    spendOps?: Array<CoinSpendOp>;
+    txOps?: Array<TxOp>;
     previousBlock?: any;
   }): Promise<BlockOp> {
     const { block, chain, network, initialSyncComplete, forkHeight, parentChain, transactions } = params;
@@ -116,7 +116,7 @@ export class Block extends BaseModel<IBlock> {
       forkHeight,
       initialSyncComplete,
       parentChainCoins,
-      mintOps: params.mintOps,
+      mintOps: params.mintOps || [],
       spendOps: params.spendOps,
       txOps: params.txOps
     });
