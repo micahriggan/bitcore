@@ -1,20 +1,21 @@
+import { Bucket } from '../../types/namespaces/ChainAdapter';
+import { EthP2pService } from './eth';
+import { ITransaction } from '../../models/transaction';
+import { IBlock } from '../../models/block';
+import config from '../../config';
+import { BitcoreP2pService } from './bitcoin';
+
 export type VerboseTransaction = ITransaction & {
   inputs: Bucket<{ mintTxid: string; mintIndex: number }>[];
   outputs: Bucket<{ value: number; address: string }>[];
 };
 export type ConvertBlockParams<B> = { chain: string; network: string; block: B };
 export type ConvertTxParams<T> = { chain: string; network: string; tx: T; block?: IBlock };
-import { Bucket } from '../../types/namespaces/ChainAdapter';
-import { EthP2pService } from './eth';
 export interface AdapterType<B, T> {
   convertBlock: (params: ConvertBlockParams<B>) => Bucket<IBlock>;
   convertTx: (params: ConvertTxParams<T>) => VerboseTransaction;
 }
 
-import { ITransaction } from '../../models/transaction';
-import { IBlock } from '../../models/block';
-import config from '../../config';
-import { BitcoreP2pService } from './bitcoin';
 interface IP2PConstructor<B, T> {
   new (params: { chain: string; network: string; chainConfig: string }): IP2P<B, T>;
 }

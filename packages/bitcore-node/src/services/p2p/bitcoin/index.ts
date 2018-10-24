@@ -1,16 +1,17 @@
 import logger from '../../../logger';
 import { EventEmitter } from 'events';
-import { BlockModel, IBlock, BlockOp } from '../../../models/block';
+import { BlockModel, IBlock } from '../../../models/block';
 import { ChainStateProvider } from '../../../providers/chain-state';
 import { TransactionModel, CoinMintOp, CoinSpendOp, TxOp } from '../../../models/transaction';
 import { Bitcoin } from '../../../types/namespaces/Bitcoin';
 import { StateModel } from '../../../models/state';
 import { Chain } from '../../../chain';
 import { SpentHeightIndicators } from '../../../models/coin';
-import { IP2P } from '..';
+import { IP2P, VerboseTransaction } from '..';
 import { BitcoinAdapter } from './bitcoin-adapter';
 import { Bucket } from '../../../types/namespaces/ChainAdapter';
 const LRU = require('lru-cache');
+const processed = {};
 
 export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transaction> {
   private chain: string;
@@ -141,6 +142,7 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
   }
 
   public async getHeaders(candidateHashes: string[]) {
+    console.log(candidateHashes);
     return new Promise(resolve => {
       const _getHeaders = () => {
         this.pool.sendMessage(
@@ -186,7 +188,17 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
     return best;
   }
 
-  async getBlockOperations(block, transactions, mintOps, spendOps, txOps, previousBlock) {
+  async getBlockOperations(
+    block: Bucket<IBlock>,
+    transactions: Array<Bucket<VerboseTransaction>>,
+    mintOps?: Array<CoinMintOp>,
+    spendOps?: Array<CoinSpendOp>,
+    txOps?: Array<TxOp>,
+    previousBlock?: IBlock
+  ) {
+    if(previousBlock && block.previousBlockHash != previousBlock.hash) {
+      throw new Error('Oh snap, wrong prevBlock');
+    }
     return BlockModel.getBlockOp({
       chain: this.chain,
       network: this.network,
@@ -273,21 +285,22 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
       }
     }
 
-    const getHeaders = async () => {
-      const locators = await ChainStateProvider.getLocatorHashes({ chain, network });
-      return this.getHeaders(locators);
+    const getHeaders = async (hashes: Array<string> = []) => {
+      if(!hashes.length) {
+        const locators = await ChainStateProvider.getLocatorHashes({ chain, network });
+        return this.getHeaders(locators);
+      } else {
+        return this.getHeaders(hashes);
+      }
     };
 
     let headers;
-    let blockBatch = new Array<any>();
-    let mintBatch = new Array<any>();
-    let spendBatch = new Array<any>();
-    let txBatch = new Array<any>();
-    let prevBlock: IBlock | null = null;
+    let blockHashes = new Array<string>();
+    let lastBlock: IBlock | undefined;
     while (!headers || headers.length > 0) {
-      headers = await getHeaders();
-      tip = await ChainStateProvider.getLocalTip({ chain, network });
-      let prevPromise: Promise<any> | null = null;
+      headers = await getHeaders(blockHashes);
+      console.log(lastBlock);
+      tip = lastBlock || await ChainStateProvider.getLocalTip({ chain, network });
       let currentHeight = tip ? tip.height : 0;
       let lastLog = 0;
       logger.info(`Syncing ${headers.length} blocks for ${chain} ${network}`);
@@ -296,67 +309,34 @@ export class BitcoreP2pService implements IP2P<Bitcoin.Block, Bitcoin.Transactio
           const bitcoinBlock = await this.getBlock(header.hash);
           const block = this.convertBlock(bitcoinBlock);
           const transactions = bitcoinBlock.transactions.map(tx => this.convertTransaction(tx, block));
-          const blockUpdates = await this.getBlockOperations(
-            block,
-            transactions,
-            mintBatch,
-            spendBatch,
-            txBatch,
-            prevBlock
-          );
-          blockBatch = blockBatch.concat(blockUpdates);
-          mintBatch = mintBatch.concat(blockUpdates.mintOps);
-          spendBatch = spendBatch.concat(blockUpdates.spendOps);
-          txBatch = txBatch.concat(blockUpdates.txOps);
-          prevBlock = blockUpdates.blockOp.$set;
+          const blockUpdates = await this.getBlockOperations(block, transactions, [], [], [], lastBlock);
+          lastBlock = blockUpdates.blockOp.$set as IBlock;
+          const hash = blockUpdates.blockOp.$set.hash!;
+          if(processed[hash]) {
+            console.error('Oh crap, cycles');
+          }
+          processed[hash] = true;
+          blockHashes.unshift(hash);
+          if(blockHashes.length > 30) {
+            blockHashes.splice(30);
+          }
+          /*
+           *await BlockModel.processBlockOps([blockUpdates]);
+           */
           if (Date.now() - lastLog > 100) {
             logger.info(`Sync `, {
               chain,
               network,
-              height: currentHeight,
-              mintQueue: mintBatch.length
+              height: currentHeight
             });
             lastLog = Date.now();
           }
-
-          if (mintBatch.length > 25000) {
-            logger.info(`Writing ${blockBatch.length} blocks `, {
-              chain,
-              network,
-              height: currentHeight
-            });
-            if (prevPromise === null) {
-              prevPromise = BlockModel.processBlockOps(blockBatch);
-            } else {
-              await prevPromise;
-              prevPromise = BlockModel.processBlockOps(blockBatch);
-            }
-            blockBatch = new Array<BlockOp>();
-            mintBatch = new Array<CoinMintOp>();
-            spendBatch = new Array<CoinSpendOp>();
-            txBatch = new Array<TxOp>();
-          }
-
           currentHeight++;
         } catch (err) {
           logger.error(`Error syncing ${chain} ${network}`, err);
           this.syncing = false;
           return this.sync();
         }
-      }
-      if (mintBatch.length > 0) {
-        // clear out the remaining at the end of sync
-        logger.info(`Writing ${blockBatch.length} blocks `, {
-          chain,
-          network,
-          height: currentHeight
-        });
-        if (prevPromise) await prevPromise;
-        await BlockModel.processBlockOps(blockBatch);
-        blockBatch = new Array<BlockOp>();
-        mintBatch = new Array<CoinMintOp>();
-        spendBatch = new Array<CoinSpendOp>();
-        txBatch = new Array<TxOp>();
       }
     }
     logger.info(`${chain}:${network} up to date.`);
