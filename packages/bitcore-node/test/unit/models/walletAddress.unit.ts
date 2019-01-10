@@ -1,5 +1,6 @@
 import { expect } from 'chai';
 import { IWalletAddress, WalletAddressStorage } from "../../../src/models/walletAddress";
+import { ObjectId } from 'mongodb';
 
 describe('WalletAddress Model', function () {
 
@@ -28,6 +29,12 @@ describe('WalletAddress Model', function () {
         object: true
       });
       expect(result).to.deep.equal({ address: '2NA2xTdQH6CG73Gc26oQZ7FEmvTx9Kwo7uf' });
+    });
+  });
+
+  describe('updateCoins', function(){
+    it('should have a test which runs', function(){
+        expect(true).to.equal(true);
     });
   });
 });
