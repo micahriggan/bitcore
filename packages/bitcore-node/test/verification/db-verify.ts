@@ -19,7 +19,10 @@ import { Storage } from '../../src/services/storage';
 
   async function validateDataForBlock(blockNum: number) {
     let allGood = true;
-    const blockTxs = await TransactionStorage.collection.find({ chain, network, blockHeight: blockNum }).toArray();
+    const blockTxs = await TransactionStorage.collection
+      .find({ chain, network, blockHeight: blockNum })
+      .sort({ _id: 1 })
+      .toArray();
     const seenTxs = {} as { [txid: string]: ITransaction };
 
     for (let tx of blockTxs) {
@@ -31,7 +34,10 @@ import { Storage } from '../../src/services/storage';
       seenTxs[tx.txid] = tx;
     }
 
-    const coinsForBlock = await CoinStorage.collection.find({ chain, network, mintHeight: blockNum }).toArray();
+    const coinsForBlock = await CoinStorage.collection
+      .find({ chain, network, mintHeight: blockNum })
+      .sort({ _id: 1 })
+      .toArray();
     const seenCoins = {} as { [txid: string]: ICoin[] };
     for (let coin of coinsForBlock) {
       if (seenCoins[coin.mintTxid] && seenCoins[coin.mintTxid][coin.mintIndex]) {
@@ -58,7 +64,7 @@ import { Storage } from '../../src/services/storage';
       const coins = seenCoins[txid];
       if (!tx) {
         allGood = false;
-        const error = { model: 'transaction', err: false, type: 'MISSING_TX', payload: tx };
+        const error = { model: 'transaction', err: false, type: 'MISSING_TX', payload: txid };
         console.log(JSON.stringify(error));
       } else {
         const sum = Object.values(coins).reduce((prev, cur) => prev + cur.value, 0);
