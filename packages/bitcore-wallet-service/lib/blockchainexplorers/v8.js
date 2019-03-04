@@ -21,7 +21,7 @@ var Constants = Common.Constants,
   Utils = Common.Utils;
 
 function v8network(bwsNetwork) {
-  if (bwsNetwork == 'livenet') return 'regtest';
+  if (bwsNetwork == 'livenet') return 'mainnet';
   return bwsNetwork;
 }
 
@@ -450,10 +450,7 @@ V8.prototype.initSocket = function(callbacks) {
   var self = this;
   log.info('V8 connecting socket at:' + this.host);
   // sockets always use the first server on the pull
-  var socket = io.connect(
-    this.host,
-    { transports: ['websocket'] }
-  );
+  var socket = io.connect(this.host, { transports: ['websocket'] });
 
   socket.on('connect', function() {
     log.info('Connected to ' + self.getConnectionInfo());
