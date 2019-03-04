@@ -234,7 +234,7 @@ Credentials.fromExtendedPublicKey = function(
 // Get network from extended private key or extended public key
 Credentials._getNetworkFromExtendedKey = function(xKey) {
   $.checkArgument(xKey && _.isString(xKey));
-  return xKey.charAt(0) == 't' ? 'testnet' : 'regtest';
+  return xKey.charAt(0) == 't' ? 'testnet' : 'livenet';
 };
 
 Credentials.prototype._hashFromEntropy = function(prefix, length) {

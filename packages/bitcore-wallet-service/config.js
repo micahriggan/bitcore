@@ -33,10 +33,12 @@ var config = {
   blockchainExplorerOpts: {
     btc: {
       livenet: {
-        url: 'https://api.bitcore.io',
+        url: 'http://localhost:3000'
+        // url: 'https://api.bitcore.io',
       },
       testnet: {
-        url: 'https://api.bitcore.io',
+        url: 'http://localhost:3000'
+        // url: 'https://api.bitcore.io',
       },
       regtest: {
         url: 'http://localhost:3000'
