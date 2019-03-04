@@ -46,54 +46,55 @@ var config = {
     },
     bch: {
       livenet: {
-        url: 'https://api.bitcore.io',
+        url: 'https://api.bitcore.io'
       },
       testnet: {
-         url: 'https://api.bitcore.io',
+        url: 'https://api.bitcore.io'
       },
       regtest: {
         url: 'http://localhost:3000'
+      }
+    },
+    pushNotificationsOpts: {
+      templatePath: './lib/templates',
+      defaultLanguage: 'en',
+      defaultUnit: 'btc',
+      subjectPrefix: '',
+      pushServerUrl: 'https://fcm.googleapis.com/fcm',
+      authorizationKey: 'You_have_to_put_something_here'
+    },
+    fiatRateServiceOpts: {
+      defaultProvider: 'BitPay',
+      fetchInterval: 60 // in minutes
     }
-  },
-  pushNotificationsOpts: {
-    templatePath: './lib/templates',
-    defaultLanguage: 'en',
-    defaultUnit: 'btc',
-    subjectPrefix: '',
-    pushServerUrl: 'https://fcm.googleapis.com/fcm',
-    authorizationKey: 'You_have_to_put_something_here'
-  },
-  fiatRateServiceOpts: {
-    defaultProvider: 'BitPay',
-    fetchInterval: 60 // in minutes
+    // To use email notifications uncomment this:
+    // emailOpts: {
+    //  host: 'localhost',
+    //  port: 25,
+    //  ignoreTLS: true,
+    //  subjectPrefix: '[Wallet Service]',
+    //  from: 'wallet-service@bitcore.io',
+    //  templatePath: './lib/templates',
+    //  defaultLanguage: 'en',
+    //  defaultUnit: 'btc',
+    //  publicTxUrlTemplate: {
+    //    btc: {
+    //      livenet: 'https://insight.bitpay.com/tx/{{txid}}',
+    //      testnet: 'https://test-insight.bitpay.com/tx/{{txid}}',
+    //    },
+    //    bch: {
+    //      livenet: 'https://bch-insight.bitpay.com/#/tx/{{txid}}',
+    //      testnet: 'https://test-bch-insight.bitpay.com/#/tx/{{txid}}',
+    //    }
+    //  },
+    // },
+    // To use sendgrid:
+    // const sgMail = require('@sendgrid/mail');
+    // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
+    //
+    //
+    // //then add:
+    // mailer: sgMail,
   }
-  // To use email notifications uncomment this:
-  // emailOpts: {
-  //  host: 'localhost',
-  //  port: 25,
-  //  ignoreTLS: true,
-  //  subjectPrefix: '[Wallet Service]',
-  //  from: 'wallet-service@bitcore.io',
-  //  templatePath: './lib/templates',
-  //  defaultLanguage: 'en',
-  //  defaultUnit: 'btc',
-  //  publicTxUrlTemplate: {
-  //    btc: {
-  //      livenet: 'https://insight.bitpay.com/tx/{{txid}}',
-  //      testnet: 'https://test-insight.bitpay.com/tx/{{txid}}',
-  //    },
-  //    bch: {
-  //      livenet: 'https://bch-insight.bitpay.com/#/tx/{{txid}}',
-  //      testnet: 'https://test-bch-insight.bitpay.com/#/tx/{{txid}}',
-  //    }
-  //  },
-  // },
-  // To use sendgrid:
-  // const sgMail = require('@sendgrid/mail');
-  // sgMail.setApiKey(process.env.SENDGRID_API_KEY);
-  //
-  //
-  // //then add:
-  // mailer: sgMail,
 };
 module.exports = config;
