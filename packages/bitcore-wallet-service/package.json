@@ -4,6 +4,7 @@
   "author": "BitPay Inc",
   "version": "8.1.0",
   "license": "MIT",
+  "proxy": "http://localhost:3000",
   "keywords": [
     "bitcoin",
     "copay",

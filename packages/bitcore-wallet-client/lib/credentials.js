@@ -71,6 +71,8 @@ Credentials.create = function(coin, network) {
   return x;
 };
 
+console.log(new Bitcore.HDPrivateKey('regtest').toString());
+
 var wordsForLang = {
   en: Mnemonic.Words.ENGLISH,
   es: Mnemonic.Words.SPANISH,

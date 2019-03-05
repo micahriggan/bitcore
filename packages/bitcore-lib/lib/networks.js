@@ -180,7 +180,7 @@ addNetwork({
  * @instance
  * @member Networks#testnet
  */
-var testnet = get('regtest');
+var testnet = get('testnet');
 
 addNetwork({
   name: 'regtest',
@@ -191,7 +191,7 @@ addNetwork({
   xpubkey: 0x043587cf,
   xprivkey: 0x04358394,
   networkMagic: 0xfabfb5da,
-  port: 18444,
+  port: 20020,
   dnsSeeds: []
 });
 
