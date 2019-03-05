@@ -22,6 +22,7 @@ var Constants = Common.Constants,
 
 function v8network(bwsNetwork) {
   if (bwsNetwork == 'livenet') return 'mainnet';
+  if (bwsNetwork == 'testnet') return 'regtest';
   return bwsNetwork;
 }
 

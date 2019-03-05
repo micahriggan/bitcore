@@ -44,7 +44,7 @@ function get(arg, keys) {
     }
     return undefined;
   }
-  if(networkMaps[arg] && networkMaps[arg].length >= 1) {
+  if (networkMaps[arg] && networkMaps[arg].length >= 1) {
     return networkMaps[arg][0];
   } else {
     return networkMaps[arg];
@@ -69,7 +69,6 @@ function get(arg, keys) {
  * @return Network
  */
 function addNetwork(data) {
-
   var network = new Network();
 
   JSUtil.defineImmutable(network, {
@@ -101,7 +100,7 @@ function addNetwork(data) {
   }
   _.each(network, function(value) {
     if (!_.isUndefined(value) && !_.isObject(value)) {
-      if(!networkMaps[value]) {
+      if (!networkMaps[value]) {
         networkMaps[value] = [];
       }
       networkMaps[value].push(network);
@@ -111,7 +110,6 @@ function addNetwork(data) {
   networks.push(network);
 
   return network;
-
 }
 
 /**
@@ -182,7 +180,7 @@ addNetwork({
  * @instance
  * @member Networks#testnet
  */
-var testnet = get('testnet');
+var testnet = get('regtest');
 
 addNetwork({
   name: 'regtest',
