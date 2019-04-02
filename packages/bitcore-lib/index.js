@@ -17,7 +17,7 @@ global._bitcore = bitcore.version;
 
 // crypto
 bitcore.crypto = {};
-bitcore.crypto.BN = require('./lib/crypto/bn');
+bitcore.crypto.BN = require('./ts_build').default.BN;
 bitcore.crypto.ECDSA = require('./lib/crypto/ecdsa');
 bitcore.crypto.Hash = require('./lib/crypto/hash');
 bitcore.crypto.Random = require('./lib/crypto/random');
