@@ -19,7 +19,7 @@ export class BTCTxProvider {
       (sum, cur) => sum + Number(cur.amount),
       fee
     );
-    while (utxoSum < recepientSum) {
+    while (utxoSum < recepientSum && index < utxos.length) {
       const utxo = utxos[index];
       utxoSum += Number(utxo.value);
       index += 1;
@@ -29,8 +29,9 @@ export class BTCTxProvider {
   }
 
   async create({ recipients, utxos = [], change, wallet, fee = 20000 }) {
-    change = change || (await wallet.deriveAddress(wallet.addressIndex, true));
-
+    if (!change && wallet) {
+      change = await wallet.deriveAddress(wallet.addressIndex, true);
+    }
     const filteredUtxos = this.selectCoins(recipients, utxos, fee);
     const btcUtxos = filteredUtxos.map(utxo => {
       const btcUtxo = Object.assign({}, utxo, {
@@ -54,7 +55,7 @@ export class BTCTxProvider {
     let inputAddresses = await this.getSigningAddresses({ tx, utxos });
     let bitcoreTx = new this.lib.Transaction(tx);
     let applicableUtxos = await this.getRelatedUtxos({
-      outputs: bitcoreTx.inputs,
+      outputs: bitcoreTx.inputs || [],
       utxos
     });
     const outputs = await this.getOutputsFromTx({ tx: bitcoreTx });
