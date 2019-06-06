@@ -13,10 +13,13 @@ export type BitcoinInputObj = {
   outputIndex: number;
 };
 export type BitcoinInput = {
+  prevTxId: Buffer;
+  outputIndex: number;
   toObject: () => BitcoinInputObj;
 };
 export type BitcoinOutput = {
   script: BitcoinScript;
+  _scriptBuffer: Buffer;
   satoshis: number;
 };
 export type BitcoinTransactionType = {

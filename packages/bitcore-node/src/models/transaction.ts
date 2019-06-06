@@ -393,7 +393,7 @@ export class TransactionModel extends BaseModel<ITransaction> {
         if (output.script) {
           address = output.script.toAddress(network).toString(true);
           if (address === 'false' && output.script.classify() === 'Pay to public key') {
-            let hash = Chain[chain].lib.crypto.Hash.sha256ripemd160(output.script.chunks[0].buf);
+            let hash = Chain[chain].lib.crypto.Hash.sha256ripemd160(output._scriptBuffer);
             address = Chain[chain].lib.Address(hash, network).toString(true);
           }
         }
@@ -413,7 +413,7 @@ export class TransactionModel extends BaseModel<ITransaction> {
                 mintHeight: height,
                 coinbase: isCoinbase,
                 value: output.satoshis,
-                script: output.script && output.script.toBuffer()
+                script: output._scriptBuffer && output._scriptBuffer
               },
               $setOnInsert: {
                 spentHeight: SpentHeightIndicators.unspent,
@@ -481,8 +481,9 @@ export class TransactionModel extends BaseModel<ITransaction> {
         continue;
       }
       for (let input of tx.inputs) {
-        let inputObj = input.toObject();
-        let sameBlockSpend = mintMap[inputObj.prevTxId] && mintMap[inputObj.prevTxId][inputObj.outputIndex];
+        const prevTxId = input.prevTxId.toString('hex');
+        const outputIndex = input.outputIndex;
+        let sameBlockSpend = mintMap[prevTxId] && mintMap[prevTxId][outputIndex];
         if (sameBlockSpend) {
           sameBlockSpend.updateOne.update.$set.spentHeight = height;
           delete sameBlockSpend.updateOne.update.$setOnInsert.spentHeight;
@@ -495,8 +496,8 @@ export class TransactionModel extends BaseModel<ITransaction> {
         const updateQuery = {
           updateOne: {
             filter: {
-              mintTxid: inputObj.prevTxId,
-              mintIndex: inputObj.outputIndex,
+              mintTxid: prevTxId,
+              mintIndex: outputIndex,
               spentHeight: { $lt: SpentHeightIndicators.minimum },
               chain,
               network
