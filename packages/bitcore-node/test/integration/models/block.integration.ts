@@ -129,7 +129,7 @@ describe('Block Model', function() {
       expect(transaction[0].locktime).to.equal(0);
       expect(transaction[0].size).to.equal(0);
       // TODO: assertion for block times
-      expect(transaction[0].wallets.length).to.equal(0);
+      expect(transaction[0].wallets).to.equal(undefined);
 
       logger.info(`tx: ${transaction[0].txid} was successfully stored in the TX model`);
     });

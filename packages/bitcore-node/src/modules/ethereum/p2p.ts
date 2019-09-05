@@ -287,12 +287,10 @@ export class EthP2pWorker extends BaseP2PWorker<IEthBlock> {
         fee,
         transactionIndex: tx.transactionIndex || 0,
         value,
-        wallets: [],
         to,
         from,
         gasLimit: Number(tx.gas),
         gasPrice: Number(tx.gasPrice),
-        // gasUsed: Number(tx.gasUsed),
         nonce: nonce,
         internal: []
       };

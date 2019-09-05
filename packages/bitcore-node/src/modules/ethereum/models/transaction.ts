@@ -1,5 +1,4 @@
 import * as _ from 'lodash';
-import { ObjectID } from 'bson';
 import logger from '../../../logger';
 import { LoggifyClass } from '../../../decorators/Loggify';
 import { IEthTransaction, EthTransactionJSON } from '../types';
@@ -95,8 +94,7 @@ export class EthTransactionModel extends BaseTransaction<IEthTransaction> {
             filter: { txid: parentTx.txid, chain, network },
             update: {
               $set: {
-                ...parentTx,
-                wallets: new Array<ObjectID>()
+                ...parentTx
               }
             },
             upsert: true,
@@ -119,7 +117,7 @@ export class EthTransactionModel extends BaseTransaction<IEthTransaction> {
                 $set: {
                   ...tx,
                   blockTimeNormalized,
-                  wallets
+                  ...(wallets && { wallets })
                 }
               },
               upsert: true,

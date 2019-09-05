@@ -19,7 +19,7 @@ import { BaseTransaction, ITransaction } from './baseTransaction';
 export { ITransaction };
 
 const { onlyWalletEvents } = Config.get().services.event;
-function shouldFire(obj: { wallets?: Array<ObjectID> }) {
+function shouldFire(obj: { wallets?: Array<ObjectID> } | any) {
   return !onlyWalletEvents || (onlyWalletEvents && obj.wallets && obj.wallets.length > 0);
 }
 
@@ -54,7 +54,7 @@ export type MintOp = {
       };
       $setOnInsert: {
         spentHeight: SpentHeightIndicators;
-        wallets: Array<ObjectID>;
+        wallets?: Array<ObjectID>;
       };
     };
     upsert: true;
@@ -201,7 +201,6 @@ export class TransactionModel extends BaseTransaction<IBtcTransaction> {
                 inputCount: parentTx.inputCount,
                 outputCount: parentTx.outputCount,
                 value: parentTx.value,
-                wallets: [],
                 ...(mempoolTime && { mempoolTime })
               }
             },
@@ -246,7 +245,7 @@ export class TransactionModel extends BaseTransaction<IBtcTransaction> {
           };
         } else {
           agg[coin.spentTxid].total += coin.value;
-          agg[coin.spentTxid].wallets.push(...coin.wallets);
+          agg[coin.spentTxid].wallets.push(...coin.wallets || []);
         }
         return agg;
       }, {});
@@ -286,7 +285,7 @@ export class TransactionModel extends BaseTransaction<IBtcTransaction> {
                 inputCount: tx.inputs.length,
                 outputCount: tx.outputs.length,
                 value: tx.outputAmount,
-                wallets,
+                ...(wallets.length && { wallets }),
                 ...(mempoolTime && { mempoolTime })
               }
             },
@@ -367,8 +366,7 @@ export class TransactionModel extends BaseTransaction<IBtcTransaction> {
                 script: output.script && output.script.toBuffer()
               },
               $setOnInsert: {
-                spentHeight: SpentHeightIndicators.unspent,
-                wallets: []
+                spentHeight: SpentHeightIndicators.unspent
               }
             },
             upsert: true,

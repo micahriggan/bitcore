@@ -85,7 +85,7 @@ async function checkWalletReceived(receivingWallet: IWallet, txid: string, addre
   expect(broadcastedTransaction!.txid).to.eq(txid);
   expect(broadcastedTransaction!.fee).gt(0);
 
-  const txWallets = broadcastedTransaction!.wallets.map(w => w.toHexString());
+  const txWallets = broadcastedTransaction!.wallets!.map(w => w.toHexString());
   expect(txWallets.length).to.eq(2);
   expect(txWallets).to.include(receivingWallet!._id!.toHexString());
   expect(txWallets).to.include(sendingWallet!._id!.toHexString());
