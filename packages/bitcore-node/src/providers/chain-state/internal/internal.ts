@@ -18,6 +18,7 @@ import { SpentHeightIndicators, CoinJSON } from '../../../types/Coin';
 import { Config } from '../../../services/config';
 import { Validation } from 'crypto-wallet-core';
 import { IBlock } from '../../../models/baseBlock';
+import { TransactionJSON } from '../../../types/Transaction';
 
 @LoggifyClass
 export class InternalStateProvider implements CSP.IChainStateService {
@@ -584,9 +585,7 @@ export class InternalStateProvider implements CSP.IChainStateService {
   }
 
   private extractAddress(address: string): string {
-    const extractedAddress = address
-      .replace(/^(bitcoincash:|bchtest:|bitcoin:)/i, '')
-      .replace(/\?.*/, '');
+    const extractedAddress = address.replace(/^(bitcoincash:|bchtest:|bitcoin:)/i, '').replace(/\?.*/, '');
     return extractedAddress || address;
   }
 }
