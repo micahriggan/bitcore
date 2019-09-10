@@ -10,16 +10,16 @@ log.debug = log.verbose;
 const PROVIDERS = {
   v8: {
     btc: {
-      livenet: 'https://api.bitpay.com',
-      testnet: 'https://api.bitpay.com'
+      livenet: 'http://localhost:3000',
+      testnet: 'http://localhost:3000'
     },
     bch: {
-      livenet: 'https://api.bitpay.com',
-      testnet: 'https://api.bitpay.com'
+      livenet: 'http://localhost:3000',
+      testnet: 'http://localhost:3000'
     },
     eth: {
-      livenet: 'https://api.bitpay.com',
-      testnet: 'https://api.bitpay.com'
+      livenet: 'http://localhost:3000',
+      testnet: 'http://localhost:3000'
     }
   }
 };

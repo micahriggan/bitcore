@@ -36,8 +36,8 @@ module.exports = {
         url: 'https://api.bitcore.io',
       },
       testnet: {
-        url: 'https://api.bitcore.io',
-        regtestEnabled: false
+        url: 'http://localhost:3000',
+        regtestEnabled: true
       },
     },
     bch: {
@@ -50,10 +50,12 @@ module.exports = {
     },
     eth: {
       livenet: {
-        url: 'https://api.bitcore.io',
+        url: 'http://localhost:3000'
+        // url: 'https://api.bitcore.io',
       },
       testnet: {
-        url: 'https://api.bitcore.io',
+        url: 'http://localhost:3000'
+        // url: 'https://api.bitcore.io',
       },
     },
   },

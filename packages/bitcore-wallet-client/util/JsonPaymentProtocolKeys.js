@@ -158,5 +158,15 @@ module.exports = {
       "bitpay.com"
     ],
     "publicKey": "03271e4ea488ed0d1294dce6f3554c5d6f9cb068a847f500f2ea392148402499f1"
+  },
+  "myd4E86KhSSVvaSW1xFanvgECTbp2NAAJt": {
+    "owner": "Micah @ BitPay, Inc.",
+    "networks": [
+      "regtest"
+    ],
+    "domains": [
+      "mriggan.bp:8088"
+    ],
+    "publicKey": "0392865ded0540cf2b5d15542fabbf0fef6114f3ef6f9887f367d6e519dfd76fe5"
   }
 }
