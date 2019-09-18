@@ -254,7 +254,9 @@ export class TxsProvider {
     hash: string,
     chainNetwork: ChainNetwork
   ): Observable<ApiEthTx & ApiUtxoCoinTx> {
-    const url = `${this.apiProvider.getUrl(chainNetwork)}/tx/${hash}`;
+    const url = `${this.apiProvider.getUrlPrefix()}/${chainNetwork.chain}/${
+      chainNetwork.network
+    }/tx/${hash}/populated`;
     return this.httpClient.get<ApiEthTx & ApiUtxoCoinTx>(url);
   }
 

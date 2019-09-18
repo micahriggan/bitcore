@@ -49,7 +49,6 @@ export class TransactionListComponent implements OnInit {
                   this.txProvider.getTx(value, this.chainNetwork)
                 );
               });
-
               Observable.forkJoin(observableBatch).subscribe((txs: any[]) => {
                 _.forEach(response, tx => {
                   if (
@@ -106,7 +105,6 @@ export class TransactionListComponent implements OnInit {
                 this.txProvider.getTx(tx, this.chainNetwork)
               );
             });
-
             Observable.forkJoin(observableBatch).subscribe((txs: any) => {
               _.forEach(txs, tx => {
                 if (
