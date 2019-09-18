@@ -194,13 +194,8 @@ export class TxsProvider {
   public toUtxoCoinsAppTx(tx: ApiUtxoCoinTx): AppUtxoCoinsTx {
     return {
       ...this.toAppTx(tx),
-<<<<<<< HEAD
       vin: tx.coins.inputs, // populated when coins are retrieved
       vout: tx.coins.outputs, // populated when coins are retrieved
-=======
-      vin: [], // populated when coins are retrieved
-      vout: [], // populated when coins are retrieved
->>>>>>> master
       version: tx.version
     };
   }
