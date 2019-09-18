@@ -194,8 +194,13 @@ export class TxsProvider {
   public toUtxoCoinsAppTx(tx: ApiUtxoCoinTx): AppUtxoCoinsTx {
     return {
       ...this.toAppTx(tx),
+<<<<<<< HEAD
       vin: tx.coins.inputs, // populated when coins are retrieved
       vout: tx.coins.outputs, // populated when coins are retrieved
+=======
+      vin: [], // populated when coins are retrieved
+      vout: [], // populated when coins are retrieved
+>>>>>>> master
       version: tx.version
     };
   }
@@ -246,9 +251,13 @@ export class TxsProvider {
     if (args.blockHash) {
       queryString += `?blockHash=${args.blockHash}`;
     }
+<<<<<<< HEAD
     const url = `${this.apiProvider.getUrlPrefix()}/${chainNetwork.chain}/${
       chainNetwork.network
     }/tx/${queryString}`;
+=======
+    const url = `${this.apiProvider.getUrl(chainNetwork)}/tx/${queryString}`;
+>>>>>>> master
     return this.httpClient.get<ApiEthTx[] & ApiUtxoCoinTx[]>(url);
   }
 
@@ -256,9 +265,13 @@ export class TxsProvider {
     hash: string,
     chainNetwork: ChainNetwork
   ): Observable<ApiEthTx & ApiUtxoCoinTx> {
+<<<<<<< HEAD
     const url = `${this.apiProvider.getUrlPrefix()}/${chainNetwork.chain}/${
       chainNetwork.network
     }/tx/${hash}/populated`;
+=======
+    const url = `${this.apiProvider.getUrl(chainNetwork)}/tx/${hash}`;
+>>>>>>> master
     return this.httpClient.get<ApiEthTx & ApiUtxoCoinTx>(url);
   }
 
@@ -273,9 +286,13 @@ export class TxsProvider {
     txId: string,
     chainNetwork: ChainNetwork
   ): Observable<CoinsApiResponse> {
+<<<<<<< HEAD
     const url = `${this.apiProvider.getUrlPrefix()}/${chainNetwork.chain}/${
       chainNetwork.network
     }/tx/${txId}/coins`;
+=======
+    const url = `${this.apiProvider.getUrl(chainNetwork)}/tx/${txId}/coins`;
+>>>>>>> master
     return this.httpClient.get<CoinsApiResponse>(url);
   }
 
