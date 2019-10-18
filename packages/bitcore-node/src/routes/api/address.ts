@@ -1,7 +1,9 @@
 import express = require('express');
 const router = express.Router({ mergeParams: true });
 import { ChainStateProvider } from '../../providers/chain-state';
-import { CoinStorage } from '../../models/coin';
+import { CoinStorage, ICoin } from '../../models/coin';
+import { Storage } from '../../services/storage';
+import { Transform } from 'stream';
 
 router.get('/:address/txs', function(req, res) {
   let { address, chain, network } = req.params;
@@ -31,20 +33,33 @@ router.get('/:address', function(req, res) {
   ChainStateProvider.streamAddressUtxos(payload);
 });
 
-router.get('/:address/coins', async function (req, res) {
+router.get('/:address/coins', async function(req, res) {
   let { address, chain, network } = req.params;
-
+  const { limit = 10, since } = req.query;
+  const args = { ...req.query, limit, since };
   try {
-    let coins = await CoinStorage.collection.find({ address, chain, network }).toArray(); //rename coins
-    let spentTxids : any[] = [];
-    spentTxids = coins.filter(tx => tx.spentTxid).map(tx => tx.spentTxid);
-    let mintedTxids = coins.filter(tx=> tx.mintTxid).map(tx => tx.mintTxid);
-
-    let [fundingTxInputs, fundingTxOutputs, spendingTxInputs, spendingTxOutputs] = await Promise.all([CoinStorage.collection.find({ chain, network, spentTxid: { $in: mintedTxids } }).toArray(),
-      CoinStorage.collection.find({ chain, network, mintTxid: { $in: mintedTxids } }).toArray(), 
-      CoinStorage.collection.find({ chain, network, mintTxid: { $in: mintedTxids } }).toArray(), 
-      CoinStorage.collection.find({ chain, network, mintTxid: { $in: spentTxids } }).toArray()]);
-    return res.json({ coins, mintedTxids, fundingTxInputs, fundingTxOutputs, spentTxids, spendingTxInputs, spendingTxOutputs });
+    const query = { address, chain, network };
+    const coinStream = Storage.streamingFind(CoinStorage, query, args, c =>
+      CoinStorage._apiTransform(c, { object: true })
+    ).pipe(
+      new Transform({
+        objectMode: true,
+        transform: async function(data, _, done) {
+          const coin: ICoin = (data as any) as ICoin;
+          const [outputs, inputs] = await Promise.all([
+            CoinStorage.collection.find({ chain, network, mintTxid: coin.mintTxid }).toArray(),
+            CoinStorage.collection.find({ chain, network, spentTxid: coin.mintTxid }).toArray()
+          ]);
+          const payload = {
+            coin: CoinStorage._apiTransform(coin, { object: true }),
+            inputs: inputs.map(i => CoinStorage._apiTransform(i, { object: true })),
+            outputs: outputs.map(o => CoinStorage._apiTransform(o, { object: true }))
+          };
+          done(null, payload);
+        }
+      })
+    );
+    return Storage.stream(coinStream, req, res);
   } catch (err) {
     return res.status(500).send(err);
   }

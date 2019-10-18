@@ -214,12 +214,10 @@ export class StorageService {
     return { query, options };
   }
 
-  apiStreamingFind<T>(
+  streamingFind<T>(
     model: TransformableModel<T>,
     originalQuery: any,
     originalOptions: StreamingFindOptions<T>,
-    req: Request,
-    res: Response,
     transform?: (data: T) => string | Buffer
   ) {
     const { query, options } = this.getFindOptions(model, originalOptions);
@@ -233,6 +231,18 @@ export class StorageService {
     if (options.sort) {
       cursor = cursor.sort(options.sort);
     }
+    return cursor;
+  }
+
+  apiStreamingFind<T>(
+    model: TransformableModel<T>,
+    originalQuery: any,
+    originalOptions: StreamingFindOptions<T>,
+    req: Request,
+    res: Response,
+    transform?: (data: T) => string | Buffer
+  ) {
+    const cursor = this.streamingFind(model, originalQuery, originalOptions, transform);
     return this.apiStream(cursor, req, res);
   }
 }

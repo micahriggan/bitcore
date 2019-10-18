@@ -187,7 +187,7 @@ export class CoinModel extends BaseModel<ICoin> {
 
   _apiTransform(coin: Partial<MongoBound<ICoin>>, options?: { object: boolean }): any {
     const transform: CoinJSON = {
-      _id: valueOrDefault(coin._id, new ObjectID()).toHexString(),
+      _id: new ObjectID(valueOrDefault(coin._id, new ObjectID())).toHexString(),
       chain: valueOrDefault(coin.chain, ''),
       network: valueOrDefault(coin.network, ''),
       coinbase: valueOrDefault(coin.coinbase, false),
