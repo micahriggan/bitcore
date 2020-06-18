@@ -255,7 +255,8 @@ export class BlockchainMonitor {
             txid: data.txid,
             address: out.address,
             amount: out.amount,
-            tokenAddress: out.tokenAddress
+            tokenAddress: out.tokenAddress,
+            multisigContractAdderss: out.multisigContractAdderss
           },
           walletId
         });
