@@ -68,7 +68,7 @@ export class BitcoinBlock extends BaseBlock<IBtcBlock> {
 
     await TransactionStorage.batchImport({
       txs: block.transactions,
-      _block: bulkInsert.insertedIds[0],
+      _block: bulkInsert.upsertedIds[0],
       blockHash: convertedBlock.hash,
       blockTime: new Date(time),
       blockTimeNormalized: new Date(timeNormalized),
