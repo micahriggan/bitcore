@@ -86,7 +86,6 @@ export interface TxOp {
     filter: { txid: string; chain: string; network: string };
     update: {
       $set: {
-        _id: ObjectID;
         chain: string;
         network: string;
         blockHeight: number;
@@ -104,7 +103,7 @@ export interface TxOp {
         wallets: Array<ObjectID>;
         mempoolTime?: Date;
       };
-      $setOnInsert?: TxOp['updateOne']['update']['$set'];
+      $setOnInsert?: Partial<TxOp['updateOne']['update']['$set'] & { _id: ObjectID }>;
     };
     upsert: true;
     forceServerObjectId: true;
@@ -367,10 +366,9 @@ export class TransactionModel extends BaseTransaction<IBtcTransaction> {
 
         txBatch.push({
           updateOne: {
-            filter: {  txid, chain, network },
+            filter: { txid, chain, network },
             update: {
               $set: {
-                _id: tx._id!,
                 chain,
                 network,
                 blockHeight: height,
@@ -387,6 +385,9 @@ export class TransactionModel extends BaseTransaction<IBtcTransaction> {
                 value: tx.outputAmount,
                 wallets,
                 ...(mempoolTime && { mempoolTime })
+              },
+              $setOnInsert: {
+                _id: tx._id!
               }
             },
             upsert: true,
